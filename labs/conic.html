@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>直线与圆锥曲线 · 交互实验</title>
+<link rel="stylesheet" href="../assets/lab.css">
+</head>
+<body>
+<div id="top"><a href="../index.html">← 知识地图</a><b>直线与圆锥曲线</b><span class="crumb">选择性必修第一册 · 第二章 直线和圆的方程 / 第三章 圆锥曲线的方程</span></div>
+<div id="app">
+  <div id="left">
+    <div class="stage"><canvas id="cv"></canvas><div class="hint">拖动曲线上的 P 看定义；拖动 M、N 改变直线（靠近焦点会吸附）；空白处拖动移动视野，滚轮缩放，双击复位</div></div>
+  </div>
+  <aside id="panel">
+    <div class="tip">解析几何大题的固定套路：<b>设直线 → 与曲线联立 → 写判别式 Δ > 0 → 韦达定理写 x₁ + x₂、x₁x₂ → 把题目条件（弦长、中点、垂直、面积）用 x₁ + x₂、x₁x₂ 表示</b>。</div>
+
+    <h2>曲线</h2>
+    <div class="seg" id="type"><button data-v="circle">圆</button><button data-v="ellipse" class="on">椭圆</button><button data-v="hyper">双曲线</button><button data-v="parab">抛物线</button></div>
+    <div class="row" id="rowA">a <input type="range" id="a" min="1" max="6" step="0.5" value="4"><span class="val" id="av"></span></div>
+    <div class="row" id="rowB">b <input type="range" id="b" min="0.5" max="5.5" step="0.5" value="3"><span class="val" id="bv"></span></div>
+    <div class="row" id="rowR">r <input type="range" id="r" min="1" max="5" step="0.5" value="3"><span class="val" id="rv"></span></div>
+    <div class="row" id="rowP">p <input type="range" id="p" min="0.5" max="4" step="0.5" value="2"><span class="val" id="pv"></span></div>
+    <div class="row"><label class="chk"><input type="checkbox" id="showDef" checked>定义（点 P）</label><label class="chk"><input type="checkbox" id="showTri">焦点三角形</label><label class="chk"><input type="checkbox" id="showLine" checked>直线 MN</label></div>
+
+    <h2>高考题型</h2>
+    <div class="grid" id="presets"></div>
+
+    <h2>分析（数值随拖动实时更新）</h2>
+    <div class="chain" id="chain"></div>
+
+    <h2>常用结论</h2>
+    <details open>
+      <summary>拖一拖，验证这些结论</summary>
+      <ul>
+        <li>椭圆 a² = b² + c²，双曲线 c² = a² + b²；离心率 e = c/a，椭圆 e 越大越扁，双曲线 e 越大开口越大。</li>
+        <li>焦点三角形面积（∠F₁PF₂ = θ）：椭圆 S = b²·tan(θ/2)，双曲线 S = b²/tan(θ/2)。</li>
+        <li>弦长 |AB| = √(1 + k²)·|x₁ − x₂| = √(1 + k²)·√Δ / |A|（A 是联立后二次项系数）。</li>
+        <li>中点弦（点差法）：椭圆 k·k_OM = −b²/a²，双曲线 k·k_OM = b²/a²，抛物线 y² = 2px 中 k·y₀ = p。</li>
+        <li>抛物线焦点弦 |AB| = x₁ + x₂ + p；过点 (2p, 0) 的弦满足 OA ⊥ OB。</li>
+        <li>直线与双曲线联立后二次项系数 b² − a²k² = 0（直线平行于渐近线）时只有一个交点，但不相切。</li>
+      </ul>
+    </details>
+  </aside>
+</div>
+
+<script src="../assets/lab.js"></script>
+<script src="../assets/plane.js"></script>
+<script>
+const { $, fmt, num } = Lab;
+const sg = Plane.signed;
+const st = {
+  type: 'ellipse', a: 4, b: 3, r: 3, p: 2, t: 1.1, br: 1,
+  M: [0, -1], N: [2, 1], showDef: true, showTri: false, showLine: true,
+};
+
+// 曲线的几何量和隐式方程 Ax² + Cy² + Dx + F = 0
+function geo() {
+  const { type, a, b, r, p } = st;
+  if (type === 'circle') return { A: 1, C: 1, D: 0, F: -r * r, foci: [] , e: 0 };
+  if (type === 'ellipse') { const c = Math.sqrt(a * a - b * b); return { A: 1 / (a * a), C: 1 / (b * b), D: 0, F: -1, c, foci: [[-c, 0], [c, 0]], e: c / a }; }
+  if (type === 'hyper') { const c = Math.sqrt(a * a + b * b); return { A: 1 / (a * a), C: -1 / (b * b), D: 0, F: -1, c, foci: [[-c, 0], [c, 0]], e: c / a }; }
+  return { A: 0, C: 1, D: -2 * p, F: 0, foci: [[p / 2, 0]], e: 1 };
+}
+
+function pointP() {
+  const { type, a, b, r, p, t, br } = st;
+  if (type === 'circle') return [r * Math.cos(t), r * Math.sin(t)];
+  if (type === 'ellipse') return [a * Math.cos(t), b * Math.sin(t)];
+  if (type === 'hyper') return [br * a * Math.cosh(t), b * Math.sinh(t)];
+  return [t * t / (2 * p), t];
+}
+
+// 直线 MN 与曲线的交点：X = M + s(N − M) 代入隐式方程
+function intersect() {
+  const g = geo(), [mx, my] = st.M, ux = st.N[0] - mx, uy = st.N[1] - my;
+  const qa = g.A * ux * ux + g.C * uy * uy, qb = 2 * g.A * mx * ux + 2 * g.C * my * uy + g.D * ux, qc = g.A * mx * mx + g.C * my * my + g.D * mx + g.F;
+  return Plane.quad(qa, qb, qc).map(s => [mx + s * ux, my + s * uy]);
+}
+
+const P = Plane.plane($('cv'), {
+  xmin: -7, xmax: 7, ymin: -5, ymax: 5,
+  draw,
+  pick(px, py, r) {
+    if (st.showLine) for (const k of ['M', 'N']) if (P.near(px, py, ...st[k], r)) return k;
+    if (st.showDef) { const q = pointP(); if (P.near(px, py, q[0], q[1], r)) return 'P'; }
+    return null;
+  },
+  move(k, x, y) {
+    if (k === 'P') {
+      const { type, a, b, p } = st;
+      if (type === 'circle') st.t = Math.atan2(y, x);
+      else if (type === 'ellipse') st.t = Math.atan2(y / b, x / a);
+      else if (type === 'hyper') { st.br = x < 0 ? -1 : 1; st.t = Math.asinh(y / b); }
+      else st.t = y;
+    } else {
+      let q = [Math.round(x * 10) / 10, Math.round(y * 10) / 10];
+      geo().foci.forEach(f => { if (Math.hypot(P.X(f[0]) - P.X(x), P.Y(f[1]) - P.Y(y)) < 10) q = [...f]; });
+      const other = st[k === 'M' ? 'N' : 'M'];
+      if (Math.hypot(q[0] - other[0], q[1] - other[1]) > 1e-6) st[k] = q;
+    }
+    render();
+  },
+});
+
+function draw(P) {
+  const { type, a, b, r, p } = st, g = geo();
+  P.grid();
+  const col = '#ea580c';
+  if (type === 'circle') P.circle(0, 0, r, col, 2.6);
+  else if (type === 'ellipse') P.curve(t => a * Math.cos(t), t => b * Math.sin(t), 0, 2 * Math.PI, 300, col, 2.6);
+  else if (type === 'hyper') {
+    P.line(0, 0, a, b, '#9ca3af', 1.2, [6, 5]); P.line(0, 0, a, -b, '#9ca3af', 1.2, [6, 5]);
+    P.label(`y = ±(${num(b / a, 3)})x`, a * 1.6, b * 1.6, '#6b7280', { dx: 8, align: 'left', size: 12 });
+    [1, -1].forEach(s => P.curve(t => s * a * Math.cosh(t), t => b * Math.sinh(t), -3.2, 3.2, 300, col, 2.6));
+  } else {
+    P.curve(t => t * t / (2 * p), t => t, -12, 12, 300, col, 2.6);
+    P.line(-p / 2, 0, 0, 1, '#9ca3af', 1.4, [6, 5]);
+    P.label(`准线 x = ${num(-p / 2)}`, -p / 2, P.vis().y1, '#6b7280', { dx: -6, dy: 14, align: 'right', size: 12 });
+  }
+  g.foci.forEach((f, i) => P.pt(f[0], f[1], '#111827', g.foci.length > 1 ? `F${'₁₂'[i]}` : 'F', { r: 4.5, dy: 16 }));
+
+  const q = pointP();
+  if (st.showDef) {
+    if (type === 'circle') P.seg(0, 0, q[0], q[1], '#2563eb', 2);
+    else if (type === 'parab') { P.seg(q[0], q[1], g.foci[0][0], 0, '#2563eb', 2); P.seg(q[0], q[1], -p / 2, q[1], '#16a34a', 2); P.pt(-p / 2, q[1], '#16a34a', null, { r: 3.5 }); }
+    else { P.seg(q[0], q[1], g.foci[0][0], 0, '#2563eb', 2); P.seg(q[0], q[1], g.foci[1][0], 0, '#16a34a', 2); }
+    if (st.showTri && g.foci.length === 2) {
+      P.poly([q, g.foci[0], g.foci[1]], 'rgba(124,58,237,.12)', '#7c3aed', 1.2);
+      const a1 = Math.atan2(g.foci[0][1] - q[1], g.foci[0][0] - q[0]), a2 = Math.atan2(g.foci[1][1] - q[1], g.foci[1][0] - q[0]);
+      let lo = Math.min(a1, a2), hi = Math.max(a1, a2); if (hi - lo > Math.PI) [lo, hi] = [hi, lo + 2 * Math.PI];
+      P.angle(q[0], q[1], lo, hi, 22, '#7c3aed', 'θ');
+    }
+    P.pt(q[0], q[1], '#2563eb', 'P', { r: 7 });
+  }
+  if (st.showLine) {
+    const [M, N] = [st.M, st.N], pts = intersect();
+    P.line(M[0], M[1], N[0] - M[0], N[1] - M[1], '#111827', 2);
+    if (pts.length === 2) {
+      const mid = [(pts[0][0] + pts[1][0]) / 2, (pts[0][1] + pts[1][1]) / 2];
+      P.seg(0, 0, mid[0], mid[1], '#a855f7', 1.2, [4, 4]);
+      P.pt(mid[0], mid[1], '#a855f7', '中点', { r: 4, size: 11 });
+      if (type === 'ellipse' && g.foci.length === 2) {
+        const dx = N[0] - M[0], dy = N[1] - M[1];
+        const onF = g.foci.findIndex(f => Math.abs((f[0] - M[0]) * dy - (f[1] - M[1]) * dx) < 1e-6 * Math.hypot(dx, dy));
+        if (onF >= 0) { const F = g.foci[1 - onF]; P.poly([F, pts[0], pts[1]], 'rgba(22,163,74,.12)', '#16a34a', 1.8); }
+      }
+    }
+    pts.forEach((pt, i) => P.pt(pt[0], pt[1], '#dc2626', pts.length > 1 ? 'AB'[i] : 'A', { r: 6 }));
+    P.pt(M[0], M[1], '#111827', 'M', { r: 5.5, dx: -16 });
+    P.pt(N[0], N[1], '#6b7280', 'N', { r: 5.5, dx: -16 });
+  }
+  const eq = { circle: `x² + y² = ${num(r * r)}`, ellipse: `x²/${num(a * a)} + y²/${num(b * b)} = 1`, hyper: `x²/${num(a * a)} − y²/${num(b * b)} = 1`, parab: `y² = ${num(2 * p)}x` }[type];
+  P.corner(eq, col);
+  if (type !== 'circle') P.corner(`e = ${num(g.e, 4)}${g.c ? `　c = ${num(g.c, 4)}` : ''}`, '#6b7280', 'left', 1);
+}
+
+function updatePanel() {
+  const { type, a, b, r, p } = st, g = geo(), q = pointP();
+  let h = '';
+  if (st.showDef) {
+    const d = f => Math.hypot(q[0] - f[0], q[1] - f[1]);
+    if (type === 'circle') h += `<div class="node"><span class="f">|OP| = ${num(Math.hypot(q[0], q[1]), 3)} = r</span></div>`;
+    else if (type === 'ellipse') h += `<div class="node"><span class="f">椭圆定义</span><br><span class="v">|PF₁| + |PF₂| = ${num(d(g.foci[0]), 3)} + ${num(d(g.foci[1]), 3)} = ${num(d(g.foci[0]) + d(g.foci[1]), 3)} = 2a</span></div>`;
+    else if (type === 'hyper') h += `<div class="node"><span class="f">双曲线定义</span><br><span class="v">||PF₁| − |PF₂|| = |${num(d(g.foci[0]), 3)} − ${num(d(g.foci[1]), 3)}| = ${num(Math.abs(d(g.foci[0]) - d(g.foci[1])), 3)} = 2a</span></div>`;
+    else h += `<div class="node"><span class="f">抛物线定义</span><br><span class="v">|PF| = ${num(d(g.foci[0]), 3)}，P 到准线距离 = ${num(q[0] + p / 2, 3)}</span><br><span class="n">焦半径公式 |PF| = x₀ + p/2</span></div>`;
+    if (st.showTri && g.foci.length === 2) {
+      const u = [g.foci[0][0] - q[0], -q[1]], v = [g.foci[1][0] - q[0], -q[1]];
+      const th = Math.acos(Math.max(-1, Math.min(1, (u[0] * v[0] + u[1] * v[1]) / Math.hypot(...u) / Math.hypot(...v))));
+      const S = Math.abs(q[1]) * g.c, Sf = type === 'ellipse' ? b * b * Math.tan(th / 2) : b * b / Math.tan(th / 2);
+      h += `<div class="link">↓</div><div class="node"><span class="f">焦点三角形 θ = ${num(th * 180 / Math.PI, 2)}°</span><br><span class="v">S = ½·2c·|y_P| = ${num(S, 3)}</span><br><span class="v">${type === 'ellipse' ? 'b²·tan(θ/2)' : 'b²/tan(θ/2)'} = ${num(Sf, 3)}</span><br><span class="n">由定义和余弦定理推出，与 P 的具体位置无关，只看 θ。</span></div>`;
+    }
+  }
+  if (st.showLine) h += lineAnalysis(g);
+  $('chain').innerHTML = h;
+}
+
+function lineAnalysis(g) {
+  const { type, a, b, r, p } = st, [M, N] = [st.M, st.N], pts = intersect();
+  const vertical = Math.abs(N[0] - M[0]) < 1e-9;
+  let h = '';
+  if (vertical) {
+    h += `<div class="node warn"><span class="f">直线 x = ${num(M[0], 2)}（斜率不存在）</span><br><span class="n">设直线时要单独讨论这种情况，或设成 x = ty + m 的形式。</span></div>`;
+  } else {
+    const k = (N[1] - M[1]) / (N[0] - M[0]), m = M[1] - k * M[0];
+    // 联立后的 Ax² + Bx + C = 0（椭圆、双曲线已乘以 a²b²）
+    let A, B, C, txt;
+    if (type === 'circle') { A = 1 + k * k; B = 2 * k * m; C = m * m - r * r; }
+    else if (type === 'ellipse') { A = b * b + a * a * k * k; B = 2 * a * a * k * m; C = a * a * m * m - a * a * b * b; }
+    else if (type === 'hyper') { A = b * b - a * a * k * k; B = -2 * a * a * k * m; C = -a * a * m * m - a * a * b * b; }
+    else { A = k * k; B = 2 * k * m - 2 * p; C = m * m; }
+    const D = B * B - 4 * A * C;
+    h += `<div class="node"><span class="f">① 设直线 y = kx + m</span><br><span class="v">k = ${num(k, 3)}，m = ${num(m, 3)}</span></div>`;
+    h += `<div class="link">↓ 代入曲线方程${type === 'ellipse' || type === 'hyper' ? '，两边乘以 a²b²' : ''}</div>`;
+    h += `<div class="node"><span class="f">② ${type === 'ellipse' ? '(b² + a²k²)x² + 2a²km·x + a²m² − a²b² = 0' : type === 'hyper' ? '(b² − a²k²)x² − 2a²km·x − a²m² − a²b² = 0' : type === 'parab' ? 'k²x² + (2km − 2p)x + m² = 0' : '(1 + k²)x² + 2km·x + m² − r² = 0'}</span><br><span class="v">${Plane.poly([A, B, C], 'x', 3)} = 0</span></div>`;
+    if (Math.abs(A) < 1e-9) {
+      h += `<div class="link">↓</div><div class="node warn"><span class="f">二次项系数为 0</span><br><span class="n">${type === 'hyper' ? '直线平行于渐近线（k = ±b/a）' : '直线平行于抛物线的对称轴（k = 0）'}：方程是一次的，只有 ${pts.length} 个交点，但不是相切。</span></div>`;
+    } else {
+      h += `<div class="link">↓</div><div class="node ${D > 1e-9 ? 'ok' : 'warn'}"><span class="f">③ Δ = B² − 4AC = ${num(D, 3)}</span><br><span class="n">${D > 1e-9 ? 'Δ > 0：两个交点' : Math.abs(D) <= 1e-9 ? 'Δ = 0：相切，一个交点' : 'Δ < 0：没有交点'}</span></div>`;
+      if (D > 1e-9) {
+        const s1 = -B / A, p1 = C / A, x1 = pts[0][0], x2 = pts[1][0], y1 = pts[0][1], y2 = pts[1][1];
+        const L = Math.sqrt(1 + k * k) * Math.sqrt(D) / Math.abs(A), x0 = s1 / 2, y0 = k * x0 + m;
+        h += `<div class="link">↓</div><div class="node"><span class="f">④ 韦达定理</span><br><span class="v">x₁ + x₂ = −B/A = ${num(s1, 4)}</span><br><span class="v">x₁x₂ = C/A = ${num(p1, 4)}</span></div>`;
+        h += `<div class="link">↓</div><div class="node"><span class="f">⑤ 用韦达定理表示条件</span><br><span class="v">弦长 |AB| = √(1 + k²)·√Δ/|A| = ${num(L, 4)}</span><br><span class="v">中点 (${num(x0, 3)}, ${num(y0, 3)})</span><br><span class="v">OA·OB = x₁x₂ + y₁y₂ = ${num(x1 * x2 + y1 * y2, 4)}${Math.abs(x1 * x2 + y1 * y2) < 1e-6 ? '（OA ⊥ OB）' : ''}</span></div>`;
+        if (type === 'ellipse' || type === 'hyper') {
+          if (Math.abs(x0) > 1e-9) h += `<div class="node"><span class="f">点差法</span>：k·k_OM = ${num(k, 3)} × ${num(y0 / x0, 3)} = <span class="v">${num(k * y0 / x0, 4)}</span><br><span class="n">${type === 'ellipse' ? '−b²/a²' : 'b²/a²'} = ${num((type === 'ellipse' ? -1 : 1) * b * b / (a * a), 4)}</span></div>`;
+        }
+        if (type === 'parab') h += `<div class="node"><span class="f">点差法</span>：k·y₀ = ${num(k * y0, 4)} = p</div>`;
+        const onF = g.foci.findIndex(f => Math.abs(f[1] - (k * f[0] + m)) < 1e-6);
+        if (onF >= 0) {
+          if (type === 'parab') h += `<div class="node ok"><span class="f">过焦点的弦</span><br><span class="v">|AB| = x₁ + x₂ + p = ${num(s1 + p, 4)}</span></div>`;
+          if (type === 'ellipse') {
+            const F1 = g.foci[1 - onF], per = L + Math.hypot(x1 - F1[0], y1) + Math.hypot(x2 - F1[0], y2);
+            h += `<div class="node ok"><span class="f">过焦点 F${'₁₂'[onF]} 的弦</span><br><span class="v">△F${'₁₂'[1 - onF]}AB 的周长 = ${num(per, 4)} = 4a</span></div>`;
+          }
+        }
+      }
+    }
+    if (type === 'circle') {
+      const d = Math.abs(m) / Math.sqrt(1 + k * k);
+      h += `<div class="node"><span class="f">几何法：圆心到直线的距离</span><br><span class="v">d = |m|/√(1 + k²) = ${num(d, 4)}，r = ${num(r)}</span><br><span class="n">${d < r - 1e-9 ? `d < r 相交，弦长 2√(r² − d²) = ${num(2 * Math.sqrt(r * r - d * d), 4)}` : Math.abs(d - r) <= 1e-9 ? 'd = r 相切' : 'd > r 相离'}</span></div>`;
+    }
+  }
+  return h;
+}
+
+function render() { P.redraw(); updatePanel(); }
+
+const show = (id, on) => { $(id).style.display = on ? '' : 'none'; };
+const setType = Lab.seg('type', v => switchType(v));
+function switchType(v) {
+  st.type = v; setType(v);
+  show('rowA', v === 'ellipse' || v === 'hyper'); show('rowB', v === 'ellipse' || v === 'hyper');
+  show('rowR', v === 'circle'); show('rowP', v === 'parab');
+  if (v === 'ellipse' && st.b >= st.a) { st.b = st.a - 0.5; Lab.setRange('b', st.b); }
+  if (v === 'parab') st.t = 2;
+  render();
+}
+Lab.range('a', v => num(v), v => { st.a = v; if (st.type === 'ellipse' && st.b >= v) { st.b = v - 0.5; Lab.setRange('b', st.b); } render(); });
+Lab.range('b', v => num(v), v => { if (st.type === 'ellipse' && v >= st.a) { v = st.a - 0.5; Lab.setRange('b', v); } st.b = v; render(); });
+Lab.range('r', v => num(v), v => { st.r = v; render(); });
+Lab.range('p', v => num(v), v => { st.p = v; render(); });
+['showDef', 'showTri', 'showLine'].forEach(id => $(id).addEventListener('change', () => { st[id] = $(id).checked; render(); }));
+
+function apply(type, o) {
+  Object.assign(st, o);
+  ['a', 'b', 'r', 'p'].forEach(k => Lab.setRange(k, st[k]));
+  ['showDef', 'showTri', 'showLine'].forEach(k => { $(k).checked = st[k]; });
+  switchType(type);
+  if (o.t !== undefined) st.t = o.t;
+  render();
+}
+Lab.presets('presets', [
+  ['椭圆定义与焦点三角形', () => apply('ellipse', { a: 5, b: 3, t: 1.2, showDef: true, showTri: true, showLine: false })],
+  ['过焦点的弦：周长 4a', () => apply('ellipse', { a: 4, b: 3, M: [Math.sqrt(7), 0], N: [Math.sqrt(7) + 1, 1], showDef: false, showTri: false, showLine: true })],
+  ['中点弦：点差法', () => apply('ellipse', { a: 4, b: 2, M: [1, 1], N: [3, 0.5], showDef: false, showTri: false, showLine: true })],
+  ['双曲线：平行于渐近线', () => apply('hyper', { a: 2, b: 1, M: [0, 1], N: [2, 2], showDef: false, showTri: false, showLine: true })],
+  ['双曲线焦点三角形', () => apply('hyper', { a: 2, b: 2, t: 0.8, br: 1, showDef: true, showTri: true, showLine: false })],
+  ['抛物线焦点弦', () => apply('parab', { p: 2, M: [1, 0], N: [2, 1.5], showDef: true, showTri: false, showLine: true, t: 3 })],
+  ['抛物线：过 (2p, 0) 的弦 OA ⊥ OB', () => apply('parab', { p: 1, M: [2, 0], N: [3, 1.5], showDef: false, showTri: false, showLine: true })],
+  ['直线与圆：弦长', () => apply('circle', { r: 3, M: [0, 2], N: [1, 3], showDef: false, showTri: false, showLine: true })],
+]);
+switchType('ellipse');
+</script>
+</body>
+</html>

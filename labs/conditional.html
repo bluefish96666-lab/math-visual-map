@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>条件概率与独立性检验 · 交互实验</title>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>
+  .ct { width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; }
+  .ct td, .ct th { border: 1px solid #e5e7eb; padding: 4px; }
+  .ct th { background: #f9fafb; font-weight: normal; color: #374151; }
+  .ct input { width: 64px; font: inherit; padding: 3px 4px; border: 1px solid #d1d5db; border-radius: 4px; text-align: right; }
+</style>
+</head>
+<body>
+<div id="top"><a href="../index.html">← 知识地图</a><b>条件概率与独立性检验</b><span class="crumb">选择性必修第三册 · 第七章 随机变量及其分布 / 第八章 成对数据的统计分析</span></div>
+<div id="app">
+  <div id="left">
+    <div class="stage"><canvas id="cv"></canvas><div class="hint" id="hint"></div></div>
+    <div class="chartWrap"><canvas id="cv2"></canvas></div>
+  </div>
+  <aside id="panel">
+    <div class="tip" id="tip"></div>
+
+    <h2>内容</h2>
+    <div class="seg" id="mode"><button data-v="cond" class="on">条件概率 · 全概率 · 贝叶斯</button><button data-v="chi">独立性检验 χ²</button></div>
+
+    <div id="ctlCond">
+      <div class="seg" id="kseg" style="margin-top:8px"><button data-v="2" class="on">A 分两类</button><button data-v="3">A 分三类</button></div>
+      <div class="row"><span id="nA1">P(A₁)</span> <input type="range" id="pA1" min="0" max="1" step="any" value="0.3"><span class="val" id="pA1v"></span></div>
+      <div class="row" id="rowA2"><span id="nA2">P(A₂)</span> <input type="range" id="pA2" min="0" max="1" step="any" value="0.3"><span class="val" id="pA2v"></span></div>
+      <div class="row"><span id="nB1">P(B|A₁)</span> <input type="range" id="pB1" min="0" max="1" step="any" value="0.6"><span class="val" id="pB1v"></span></div>
+      <div class="row"><span id="nB2">P(B|A₂)</span> <input type="range" id="pB2" min="0" max="1" step="any" value="0.2"><span class="val" id="pB2v"></span></div>
+      <div class="row" id="rowB3"><span id="nB3">P(B|A₃)</span> <input type="range" id="pB3" min="0" max="1" step="any" value="0.4"><span class="val" id="pB3v"></span></div>
+      <div class="row">求后验概率 <div class="seg" id="target" style="flex:1"><button data-v="0" class="on">A₁</button><button data-v="1">A₂</button><button data-v="2" id="t3">A₃</button></div></div>
+    </div>
+
+    <div id="ctlChi" style="display:none">
+      <table class="ct" style="margin-top:8px">
+        <tr><th></th><th id="c1">y = 1</th><th id="c2">y = 0</th><th>合计</th></tr>
+        <tr><th id="r1">x = 1</th><td><input type="number" id="a" min="0" value="40"></td><td><input type="number" id="b" min="0" value="10"></td><td id="s1"></td></tr>
+        <tr><th id="r2">x = 0</th><td><input type="number" id="c" min="0" value="30"></td><td><input type="number" id="d" min="0" value="20"></td><td id="s2"></td></tr>
+        <tr><th>合计</th><td id="s3"></td><td id="s4"></td><td id="s5"></td></tr>
+      </table>
+      <div class="row" style="margin-top:8px">显著性水平 α <div class="seg" id="alpha" style="flex:1"><button data-v="0.1">0.1</button><button data-v="0.05" class="on">0.05</button><button data-v="0.01">0.01</button><button data-v="0.005">0.005</button><button data-v="0.001">0.001</button></div></div>
+    </div>
+
+    <h2>高考题型</h2>
+    <div class="grid" id="presets"></div>
+
+    <h2>计算过程</h2>
+    <div class="chain" id="chain"></div>
+
+    <h2>常用结论</h2>
+    <details open>
+      <summary>拖一拖，验证这些结论</summary>
+      <ul>
+        <li>条件概率 P(B|A) = P(AB)/P(A)：把样本空间缩小到 A 里面看 B 占多少。乘法公式 P(AB) = P(A)P(B|A)。</li>
+        <li>全概率公式：A₁、A₂、…… 两两互斥且并起来是全体，P(B) = Σ P(Aᵢ)P(B|Aᵢ)。"由因求果"。</li>
+        <li>贝叶斯公式：P(Aᵢ|B) = P(Aᵢ)P(B|Aᵢ) / P(B)。"由果溯因"，分母就是全概率。</li>
+        <li>A、B 独立 ⇔ P(B|A) = P(B|Ā) = P(B)：面积图里各列的分界线对齐。</li>
+        <li>χ² = n(ad − bc)² / [(a + b)(c + d)(a + c)(b + d)]；χ² ≥ x_α 时推断两变量<b>不独立</b>（有关联），犯错概率不超过 α。</li>
+        <li>临界值：α = 0.1 → 2.706，0.05 → 3.841，0.01 → 6.635，0.005 → 7.879，0.001 → 10.828。</li>
+      </ul>
+    </details>
+  </aside>
+</div>
+
+<script src="../assets/lab.js"></script>
+<script>
+const { $, num, text, line } = Lab;
+const COL = ['#2563eb', '#16a34a', '#ea580c'];
+const SUBS = ['₁', '₂', '₃'];
+const st = {
+  mode: 'cond', k: 2, pA: [0.3, 0.3], pB: [0.6, 0.2, 0.4], target: 0,
+  nameA: ['A₁', 'A₂', 'A₃'], nameB: 'B', desc: '',
+  a: 40, b: 10, c: 30, d: 20, alpha: 0.05, rows: ['x = 1', 'x = 0'], cols: ['y = 1', 'y = 0'],
+};
+const CRIT = [[0.1, 2.706], [0.05, 3.841], [0.01, 6.635], [0.005, 7.879], [0.001, 10.828]];
+
+// 接近 p/q（q ≤ 12）的数写成分数
+function nice(v) {
+  for (let q = 2; q <= 12; q++) { const p = Math.round(v * q); if (p > 0 && p < q && Math.abs(p / q - v) < 1e-9 && Math.abs(v * 100 - Math.round(v * 100)) > 1e-9) return `${p}/${q}`; }
+  return num(v, 4);
+}
+function parts() {
+  const pA = st.k === 2 ? [st.pA[0], 1 - st.pA[0]] : [st.pA[0], st.pA[1], Math.max(0, 1 - st.pA[0] - st.pA[1])];
+  const pB = st.pB.slice(0, st.k), joint = pA.map((p, i) => p * pB[i]), PB = joint.reduce((s, v) => s + v, 0);
+  return { pA, pB, joint, PB };
+}
+
+const v1 = Lab.canvas($('cv'), () => draw()), v2 = Lab.canvas($('cv2'), () => draw());
+
+function draw() {
+  if (!v1.W || !v2.W) return;
+  v1.begin(); v2.begin();
+  if (st.mode === 'cond') { drawArea(v1.ctx, v1.W, v1.H); drawTree(v2.ctx, v2.W, v2.H); }
+  else { drawBars(v1.ctx, v1.W, v1.H); drawChi(v2.ctx, v2.W, v2.H); }
+}
+
+function drawArea(c, W, H) {
+  const { pA, pB, joint, PB } = parts();
+  const S = Math.max(120, Math.min(W * 0.52, H - 110)), x0 = 50, y0 = 60;
+  text(c, '面积 = 概率：每一列宽 P(Aᵢ)，列中深色部分高 P(B|Aᵢ)', x0, 26, '#374151', { size: 14, bold: true, align: 'left' });
+  let x = x0;
+  pA.forEach((p, i) => {
+    const w = S * p, hB = S * pB[i];
+    c.fillStyle = COL[i] + '1f'; c.fillRect(x, y0, w, S - hB);
+    c.fillStyle = COL[i] + (i === st.target ? 'cc' : '80'); c.fillRect(x, y0 + S - hB, w, hB);
+    c.strokeStyle = '#fff'; c.lineWidth = 2; c.strokeRect(x, y0, w, S);
+    if (w > 34) {
+      text(c, `${st.nameA[i]}`, x + w / 2, y0 - 12, COL[i], { size: 13, bold: true });
+      text(c, nice(p), x + w / 2, y0 + S + 16, COL[i], { size: 12 });
+      if (hB > 18) text(c, `${nice(pB[i])}`, x + w / 2, y0 + S - hB / 2, '#fff', { size: 12, bold: true, halo: false });
+      if (S - hB > 18) text(c, nice(1 - pB[i]), x + w / 2, y0 + (S - hB) / 2, COL[i], { size: 12 });
+    }
+    x += w;
+  });
+  text(c, `深色 = ${st.nameB}`, x0 + S + 10, y0 + S - 8, '#374151', { size: 12, align: 'left' });
+  text(c, `浅色 = 非${st.nameB}`, x0 + S + 10, y0 + 8, '#6b7280', { size: 12, align: 'left' });
+  // 把所有 B 拼成一条：P(Aᵢ|B) 就是各段所占比例
+  const bx = x0 + S + 90, bw = W - bx - 30;
+  if (bw > 120 && PB > 1e-12) {
+    const by = y0 + S * 0.35, bh = 46;
+    text(c, `把所有深色（${st.nameB}）拼在一起：P(${st.nameB}) = ${num(PB, 4)}`, bx, by - 22, '#111827', { size: 13, bold: true, align: 'left' });
+    let xx = bx;
+    joint.forEach((j, i) => {
+      const w = bw * j / PB;
+      c.fillStyle = COL[i] + (i === st.target ? 'cc' : '80'); c.fillRect(xx, by, w, bh);
+      c.strokeStyle = '#fff'; c.lineWidth = 2; c.strokeRect(xx, by, w, bh);
+      if (w > 40) text(c, `${(j / PB * 100).toFixed(1)}%`, xx + w / 2, by + bh / 2, '#fff', { size: 13, bold: true, halo: false });
+      xx += w;
+    });
+    const t = st.target;
+    text(c, `P(${st.nameA[t]}|${st.nameB}) = ${num(joint[t], 4)} / ${num(PB, 4)} = ${num(joint[t] / PB, 4)}`, bx, by + bh + 24, COL[t], { size: 15, bold: true, align: 'left' });
+    text(c, '先验 P(' + st.nameA[t] + ') = ' + num(pA[t], 4) + '　→　后验 ' + num(joint[t] / PB, 4), bx, by + bh + 50, '#6b7280', { size: 13, align: 'left' });
+  }
+}
+
+function drawTree(c, W, H) {
+  const { pA, pB, joint } = parts(), k = pA.length;
+  const rx = 40, ry = H / 2, x1 = W * 0.26, x2 = W * 0.5;
+  Lab.dot(c, rx, ry, 5, '#111827');
+  const rowH = (H - 20) / (2 * k);
+  pA.forEach((p, i) => {
+    const y1 = 10 + rowH * (2 * i + 1);
+    line(c, rx, ry, x1, y1, COL[i], 2);
+    text(c, nice(p), (rx + x1) / 2, (ry + y1) / 2 - 9, COL[i], { size: 12, bold: true });
+    text(c, st.nameA[i], x1, y1, COL[i], { size: 13, bold: true });
+    [[pB[i], st.nameB, true], [1 - pB[i], `非${st.nameB}`, false]].forEach(([q, nm, isB], j) => {
+      const y2 = 10 + rowH * (2 * i + j) + rowH / 2;
+      line(c, x1 + 22, y1, x2, y2, isB ? COL[i] : '#cbd5e1', isB ? 2 : 1.4);
+      text(c, nice(q), (x1 + x2) / 2 + 10, (y1 + y2) / 2 - 8, isB ? COL[i] : '#9ca3af', { size: 11 });
+      text(c, `${nm}　P = ${nice(p)} × ${nice(q)} = ${num(p * q, 4)}`, x2 + 8, y2, isB ? '#111827' : '#9ca3af', { size: 12, align: 'left', bold: isB });
+    });
+  });
+  text(c, `树状图：沿路径相乘（乘法公式），把所有 ${st.nameB} 的末端相加（全概率）= ${num(joint.reduce((s, v) => s + v, 0), 4)}`, W - 12, H - 12, '#6b7280', { size: 12, align: 'right' });
+}
+
+function chi() {
+  const { a, b, c, d } = st, n = a + b + c + d, den = (a + b) * (c + d) * (a + c) * (b + d);
+  return { n, den, x2: den > 0 ? n * (a * d - b * c) ** 2 / den : 0 };
+}
+function erf(x) { const s = Math.sign(x); x = Math.abs(x); const t = 1 / (1 + 0.3275911 * x); return s * (1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x)); }
+const pval = x => 1 - erf(Math.sqrt(x / 2));
+
+function drawBars(c, W, H) {
+  const { a, b, c: cc, d } = st, rows = [[a, b], [cc, d]], n = a + b + cc + d;
+  text(c, '等高堆积条形图：每一行各自算百分比，比较两根柱子里深色所占比例', 30, 26, '#374151', { size: 14, bold: true, align: 'left' });
+  const bw = Math.min(140, W * 0.16), gap = bw * 0.9, hh = H - 120, x0 = W * 0.18, y0 = 60;
+  rows.forEach((r, i) => {
+    const s = r[0] + r[1], p = s ? r[0] / s : 0, x = x0 + i * (bw + gap);
+    c.fillStyle = COL[0] + 'b0'; c.fillRect(x, y0 + hh * (1 - p), bw, hh * p);
+    c.fillStyle = COL[0] + '22'; c.fillRect(x, y0, bw, hh * (1 - p));
+    c.strokeStyle = '#94a3b8'; c.lineWidth = 1; c.strokeRect(x, y0, bw, hh);
+    text(c, `${(p * 100).toFixed(1)}%`, x + bw / 2, y0 + hh * (1 - p / 2), '#fff', { size: 14, bold: true, halo: false });
+    text(c, `${((1 - p) * 100).toFixed(1)}%`, x + bw / 2, y0 + hh * (1 - p) / 2, COL[0], { size: 13 });
+    text(c, st.rows[i], x + bw / 2, y0 + hh + 18, '#111827', { size: 13, bold: true });
+  });
+  const all = n ? (a + cc) / n : 0, yy = y0 + hh * (1 - all);
+  line(c, x0 - 20, yy, x0 + 2 * bw + gap + 20, yy, '#dc2626', 1.6, [6, 4]);
+  text(c, `整体 ${(all * 100).toFixed(1)}%`, x0 + 2 * bw + gap + 26, yy, '#dc2626', { size: 12, align: 'left' });
+  const lx = x0 + 2 * bw + gap + 120;
+  c.fillStyle = COL[0] + 'b0'; c.fillRect(lx, y0 + 10, 14, 14); text(c, st.cols[0], lx + 20, y0 + 17, '#111827', { size: 13, align: 'left' });
+  c.fillStyle = COL[0] + '22'; c.fillRect(lx, y0 + 34, 14, 14); c.strokeRect(lx, y0 + 34, 14, 14); text(c, st.cols[1], lx + 20, y0 + 41, '#111827', { size: 13, align: 'left' });
+  text(c, '两根柱子的深色比例差得越多，越说明两个变量有关联', lx, y0 + 76, '#6b7280', { size: 12, align: 'left' });
+}
+
+function drawChi(c, W, H) {
+  const { x2 } = chi(), xmax = Math.max(12, Math.min(60, x2 * 1.15));
+  const L = 50, R = W - 20, T = 20, B = H - 30, ymax = 0.22;
+  const X = x => L + (R - L) * x / xmax, Y = y => B - (B - T) * Math.min(y, ymax) / ymax;
+  const f = x => Math.exp(-x / 2) / Math.sqrt(2 * Math.PI * x);
+  line(c, L, B, R, B, '#9ca3af', 1.3); line(c, L, B, L, T, '#9ca3af', 1.3);
+  const step = xmax > 30 ? 10 : xmax > 15 ? 5 : 2;
+  for (let x = 0; x <= xmax; x += step) text(c, String(x), X(x), B + 14, '#6b7280', { size: 11 });
+  // 拒绝域阴影
+  const xa = CRIT.find(r => r[0] === st.alpha)[1];
+  c.beginPath(); c.moveTo(X(xa), B);
+  for (let x = xa; x <= xmax; x += xmax / 400) c.lineTo(X(x), Y(f(x)));
+  c.lineTo(X(xmax), B); c.closePath(); c.fillStyle = 'rgba(220,38,38,.18)'; c.fill();
+  c.beginPath();
+  for (let x = 0.02; x <= xmax; x += xmax / 600) c[x === 0.02 ? 'moveTo' : 'lineTo'](X(x), Y(f(x)));
+  c.strokeStyle = '#374151'; c.lineWidth = 2; c.stroke();
+  CRIT.forEach(([al, v]) => {
+    if (v > xmax) return;
+    const on = al === st.alpha;
+    line(c, X(v), B, X(v), T + 26, on ? '#dc2626' : 'rgba(107,114,128,.35)', on ? 1.8 : 1, [4, 4]);
+    text(c, `${v}`, X(v), T + 16, on ? '#dc2626' : '#9ca3af', { size: 11, bold: on });
+  });
+  const reject = x2 >= xa;
+  line(c, X(Math.min(x2, xmax)), B, X(Math.min(x2, xmax)), T + 40, reject ? '#dc2626' : '#16a34a', 3);
+  text(c, `χ² = ${num(x2, 3)}`, X(Math.min(x2, xmax)) + 6, T + 46, reject ? '#dc2626' : '#16a34a', { size: 14, bold: true, align: 'left' });
+  text(c, `χ² 分布（自由度 1）；红色阴影是 α = ${st.alpha} 的拒绝域`, R, B - 12, '#6b7280', { size: 12, align: 'right' });
+}
+
+function panel() {
+  let h = '';
+  if (st.mode === 'cond') {
+    const { pA, pB, joint, PB } = parts(), t = st.target, A = st.nameA, Bn = st.nameB;
+    const AB = i => /^[A-Z]/.test(A[i]) ? `${A[i]}${Bn}` : `${A[i]}∩${Bn}`;
+    if (st.desc) h += `<div class="node"><span class="n">${st.desc}</span></div>`;
+    h += `<div class="node"><span class="f">① 乘法公式（树状图的每条路径）</span><br>${pA.map((p, i) => `<span class="v">P(${AB(i)}) = P(${A[i]})P(${Bn}|${A[i]}) = ${nice(p)} × ${nice(pB[i])} = ${num(joint[i], 4)}</span>`).join('<br>')}</div>`;
+    h += `<div class="link">↓ 相加</div><div class="node"><span class="f">② 全概率公式</span><br><span class="v">P(${Bn}) = ${joint.map(v => num(v, 4)).join(' + ')} = ${num(PB, 4)}</span></div>`;
+    if (PB > 1e-12) h += `<div class="link">↓ 由果溯因</div><div class="node ok"><span class="f">③ 贝叶斯公式</span><br><span class="v">P(${A[t]}|${Bn}) = P(${AB(t)}) / P(${Bn}) = ${num(joint[t], 4)} / ${num(PB, 4)} = ${num(joint[t] / PB, 4)}</span><br><span class="n">已知结果 ${Bn} 发生后，${A[t]} 的概率从 ${num(pA[t], 4)} 变成 ${num(joint[t] / PB, 4)}。</span></div>`;
+    const indep = pB.every(v => Math.abs(v - pB[0]) < 1e-9);
+    h += indep
+      ? `<div class="node ok"><span class="f">${Bn} 与 A 的分类独立</span><br><span class="n">各列 P(${Bn}|Aᵢ) 相同 = P(${Bn})，面积图的分界线对齐；此时 P(Aᵢ|${Bn}) = P(Aᵢ)，知道 ${Bn} 不改变判断。</span></div>`
+      : `<div class="node"><span class="f">不独立</span><br><span class="n">各列 P(${Bn}|Aᵢ) 不同（分界线高低不齐），所以 P(Aᵢ|${Bn}) ≠ P(Aᵢ)。</span></div>`;
+  } else {
+    const { a, b, c, d } = st, { n, den, x2 } = chi(), xa = CRIT.find(r => r[0] === st.alpha)[1];
+    h += `<div class="node"><span class="f">① 零假设 H₀</span><br><span class="n">"${st.rows.join('/')}"与"${st.cols.join('/')}"相互独立（没有关联）</span></div>`;
+    h += `<div class="link">↓</div><div class="node"><span class="f">② 计算 χ²</span><br><span class="v">χ² = n(ad − bc)² / [(a + b)(c + d)(a + c)(b + d)]</span><br><span class="v">= ${n} × (${a}×${d} − ${b}×${c})² / (${a + b}×${c + d}×${a + c}×${b + d})</span><br><span class="v">= ${n} × ${(a * d - b * c) ** 2} / ${den} ≈ ${num(x2, 3)}</span></div>`;
+    const reject = x2 >= xa;
+    h += `<div class="link">↓ 与临界值 x<sub>${st.alpha}</sub> = ${xa} 比较</div><div class="node ${reject ? 'warn' : 'ok'}"><span class="f">③ 结论（α = ${st.alpha}）</span><br><span class="v">χ² ${reject ? '≥' : '<'} ${xa}</span><br><span class="n">${reject ? `推断 H₀ 不成立，即认为"${st.rows.join('/')}"与"${st.cols.join('/')}"<b>有关联</b>，此推断犯错误的概率不超过 ${st.alpha}。` : `没有充分证据推断 H₀ 不成立，可以认为两者<b>独立</b>（不能说"一定无关"）。`}</span></div>`;
+    h += `<table class="tbl" style="margin-top:6px"><tr><td>α</td><td>x_α</td><td>结论</td></tr>${CRIT.map(([al, v]) => `<tr><td>${al}</td><td>${v}</td><td class="${x2 >= v ? 'bad' : 'good'}">${x2 >= v ? '有关联' : '独立'}</td></tr>`).join('')}</table>`;
+    h += `<div class="node"><span class="n">p 值 ≈ ${num(pval(x2), 4)}：H₀ 成立时出现这么大（或更大）χ² 的概率。样本同比扩大 k 倍，比例不变，χ² 也扩大 k 倍。</span></div>`;
+    ['s1', 's2', 's3', 's4', 's5'].forEach((id, i) => { $(id).textContent = [a + b, c + d, a + c, b + d, n][i]; });
+  }
+  $('chain').innerHTML = h;
+}
+
+function render() { draw(); panel(); }
+
+const fmtP = v => nice(v);
+['pA1', 'pA2', 'pB1', 'pB2', 'pB3'].forEach(id => Lab.range(id, fmtP, v => {
+  v = Math.round(v * 100) / 100;
+  if (id === 'pA1') { st.pA[0] = v; if (st.k === 3 && st.pA[0] + st.pA[1] > 1) { st.pA[1] = Math.round((1 - v) * 100) / 100; Lab.setRange('pA2', st.pA[1]); } }
+  else if (id === 'pA2') { st.pA[1] = Math.min(v, Math.round((1 - st.pA[0]) * 100) / 100); }
+  else st.pB[+id[2] - 1] = v;
+  syncLabels(); render();
+}));
+function syncLabels() {
+  const A = st.nameA, B = st.nameB, k = st.k;
+  $('nA1').textContent = `P(${A[0]})`; $('nA2').textContent = `P(${A[1]})`;
+  [1, 2, 3].forEach(i => { $('nB' + i).textContent = `P(${B}|${A[i - 1]})`; });
+  $('rowA2').style.display = k === 3 ? '' : 'none'; $('rowB3').style.display = k === 3 ? '' : 'none'; $('t3').style.display = k === 3 ? '' : 'none';
+  if (st.target >= k) st.target = 0;
+  document.querySelectorAll('#target button').forEach((b, i) => { b.textContent = A[i]; b.classList.toggle('on', i === st.target); });
+  setK(String(k));
+  $('pA1v').textContent = nice(st.pA[0]); $('pA2v').textContent = nice(st.pA[1]);
+  [1, 2, 3].forEach(i => { $('pB' + i + 'v').textContent = nice(st.pB[i - 1]); });
+}
+const setK = Lab.seg('kseg', v => { st.k = +v; if (st.k === 3 && st.pA[0] + st.pA[1] > 1) st.pA[1] = Math.round((1 - st.pA[0]) * 50) / 100; Lab.setRange('pA2', st.pA[1]); syncLabels(); render(); });
+Lab.seg('target', v => { st.target = +v; syncLabels(); render(); });
+const setMode = Lab.seg('mode', v => switchMode(v));
+const setAlpha = Lab.seg('alpha', v => { st.alpha = +v; render(); });
+['a', 'b', 'c', 'd'].forEach(k => $(k).addEventListener('input', () => { st[k] = Math.max(0, Math.round(+$(k).value || 0)); render(); }));
+
+function switchMode(v) {
+  st.mode = v; setMode(v);
+  $('ctlCond').style.display = v === 'cond' ? '' : 'none';
+  $('ctlChi').style.display = v === 'chi' ? '' : 'none';
+  $('tip').innerHTML = v === 'cond'
+    ? '<b>面积图</b>：整个正方形是全部可能（面积 1）。按原因 A₁、A₂… 竖着切成几列，再在每一列里按结果 B 横着切。条件概率就是"在某一块里所占的比例"。'
+    : '<b>独立性检验</b>：2×2 列联表里，如果两个变量独立，两行中"y = 1"的比例应该差不多。χ² 衡量实际数据偏离"独立"有多远。';
+  $('hint').textContent = v === 'cond' ? '拖动右侧滑块；深色是 B 发生的部分' : '修改右侧表格中的频数';
+  ['c1', 'c2'].forEach((id, i) => { $(id).textContent = st.cols[i]; });
+  ['r1', 'r2'].forEach((id, i) => { $(id).textContent = st.rows[i]; });
+  render();
+}
+
+function applyCond(o) {
+  Object.assign(st, { nameA: ['A₁', 'A₂', 'A₃'], nameB: 'B', desc: '', target: 0 }, o);
+  Lab.setRange('pA1', st.pA[0]); Lab.setRange('pA2', st.pA[1]);
+  [1, 2, 3].forEach(i => Lab.setRange('pB' + i, st.pB[i - 1]));
+  syncLabels(); switchMode('cond');
+}
+function applyChi(o) {
+  Object.assign(st, o);
+  ['a', 'b', 'c', 'd'].forEach(k => { $(k).value = st[k]; });
+  setAlpha(String(st.alpha)); switchMode('chi');
+}
+Lab.presets('presets', [
+  ['疾病检测：阳性就一定患病吗', () => applyCond({ k: 2, pA: [0.01, 0], pB: [0.99, 0.05, 0], nameA: ['患病', '健康'], nameB: '阳性', desc: '发病率 1%，患病者检测阳性的概率 99%，健康人误判为阳性的概率 5%。' })],
+  ['三家工厂的次品（全概率）', () => applyCond({ k: 3, pA: [0.25, 0.35], pB: [0.05, 0.04, 0.02], nameA: ['甲厂', '乙厂', '丙厂'], nameB: '次品', desc: '甲、乙、丙厂产量占 25%、35%、40%，次品率 5%、4%、2%。抽到次品，来自甲厂的概率？' })],
+  ['抽签公平吗', () => applyCond({ k: 2, pA: [0.2, 0], pB: [1 / 9, 2 / 9, 0], nameA: ['甲中签', '甲未中'], nameB: '乙中签', desc: '10 张签中 2 张有奖，甲先抽、乙后抽（不放回）。乙中签的概率仍是 0.2。' })],
+  ['独立：分界线对齐', () => applyCond({ k: 2, pA: [0.4, 0], pB: [0.3, 0.3, 0], desc: 'P(B|A₁) = P(B|A₂) 时 A 与 B 独立。' })],
+  ['列联表：有关联吗', () => applyChi({ a: 40, b: 10, c: 30, d: 20, alpha: 0.05, rows: ['男生', '女生'], cols: ['喜欢', '不喜欢'] })],
+  ['样本扩大 10 倍', () => applyChi({ a: 400, b: 100, c: 300, d: 200, alpha: 0.01, rows: ['男生', '女生'], cols: ['喜欢', '不喜欢'] })],
+  ['比例相同：χ² = 0', () => applyChi({ a: 30, b: 20, c: 60, d: 40, alpha: 0.05, rows: ['甲班', '乙班'], cols: ['优秀', '不优秀'] })],
+  ['疗法与疗效（α = 0.005）', () => applyChi({ a: 36, b: 14, c: 18, d: 32, alpha: 0.005, rows: ['新疗法', '旧疗法'], cols: ['有效', '无效'] })],
+]);
+applyCond({ k: 2, pA: [0.3, 0.3], pB: [0.6, 0.2, 0.4] });
+</script>
+</body>
+</html>

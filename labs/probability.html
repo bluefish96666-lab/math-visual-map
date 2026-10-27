@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>随机变量的分布 · 交互实验</title>
+<link rel="stylesheet" href="../assets/lab.css">
+</head>
+<body>
+<div id="top"><a href="../index.html">← 知识地图</a><b>随机变量的分布</b><span class="crumb">选择性必修第三册 · 第七章 随机变量及其分布 / 必修第二册 · 第十章 概率</span></div>
+<div id="app">
+  <div id="left">
+    <div class="stage"><canvas id="cv"></canvas><div class="hint" id="hint"></div></div>
+  </div>
+  <aside id="panel">
+    <div class="tip" id="tip"></div>
+
+    <h2>分布</h2>
+    <div class="seg" id="mode"><button data-v="binom" class="on">二项分布</button><button data-v="hyper">超几何</button><button data-v="compare">两者对比</button><button data-v="normal">正态分布</button></div>
+
+    <div id="ctlDisc">
+      <div class="row" id="rowN">总数 N <input type="range" id="N" min="5" max="50" step="1" value="20"><span class="val" id="Nv"></span></div>
+      <div class="row" id="rowM">次品数 M <input type="range" id="M" min="0" max="50" step="1" value="6"><span class="val" id="Mv"></span></div>
+      <div class="row">次数 n <input type="range" id="n" min="1" max="30" step="1" value="10"><span class="val" id="nv"></span></div>
+      <div class="row" id="rowP">成功概率 p <input type="range" id="p" min="0" max="1" step="0.05" value="0.3"><span class="val" id="pv"></span></div>
+      <div class="row">区间 k₁ <input type="range" id="k1" min="0" max="30" step="1" value="2"><span class="val" id="k1v"></span></div>
+      <div class="row">区间 k₂ <input type="range" id="k2" min="0" max="30" step="1" value="4"><span class="val" id="k2v"></span></div>
+      <div class="row"><button class="primary" id="sim" style="flex:1">模拟 1000 次</button><button id="clear">清除模拟</button></div>
+    </div>
+    <div id="ctlNorm" style="display:none">
+      <div class="row">μ <input type="range" id="mu" min="-4" max="4" step="0.5" value="0"><span class="val" id="muv"></span></div>
+      <div class="row">σ <input type="range" id="sg" min="0.4" max="3" step="0.1" value="1"><span class="val" id="sgv"></span></div>
+      <div class="row">区间左端 a <input type="range" id="na" min="-10" max="10" step="0.1" value="-1"><span class="val" id="nav"></span></div>
+      <div class="row">区间右端 b <input type="range" id="nb" min="-10" max="10" step="0.1" value="1"><span class="val" id="nbv"></span></div>
+      <div class="row"><button id="s1">μ ± σ</button><button id="s2">μ ± 2σ</button><button id="s3">μ ± 3σ</button></div>
+    </div>
+
+    <h2>高考题型</h2>
+    <div class="grid" id="presets"></div>
+
+    <h2>分析</h2>
+    <div class="chain" id="chain"></div>
+
+    <h2>常用结论</h2>
+    <details open>
+      <summary>拖一拖，验证这些结论</summary>
+      <ul>
+        <li>二项分布 B(n, p)：n 次独立重复试验（有放回）中成功的次数。E(X) = np，D(X) = np(1 − p)。</li>
+        <li>超几何分布：N 件中有 M 件次品，不放回地抽 n 件，次品数 X。E(X) = nM/N，与"有放回"相同，但方差更小。</li>
+        <li>N 很大时，不放回和有放回差别很小，超几何分布近似于二项分布。</li>
+        <li>二项分布概率最大的 k：(n + 1)p − 1 ≤ k ≤ (n + 1)p；(n + 1)p 为整数时有两个。</li>
+        <li>正态分布 3σ 原则：P(μ − σ ≤ X ≤ μ + σ) ≈ 0.6827，±2σ ≈ 0.9545，±3σ ≈ 0.9973。求概率主要靠对称性。</li>
+      </ul>
+    </details>
+  </aside>
+</div>
+
+<script src="../assets/lab.js"></script>
+<script src="../assets/plane.js"></script>
+<script>
+const { $, fmt, num } = Lab;
+const st = { mode: 'binom', N: 20, M: 6, n: 10, p: 0.3, k1: 2, k2: 4, mu: 0, sg: 1, na: -1, nb: 1, sim: null };
+
+function C(n, k) { if (k < 0 || k > n) return 0; let r = 1; for (let i = 1; i <= k; i++) r = r * (n - k + i) / i; return r; }
+const binom = (n, p) => Array.from({ length: n + 1 }, (_, k) => C(n, k) * p ** k * (1 - p) ** (n - k));
+const hyper = (N, M, n) => Array.from({ length: n + 1 }, (_, k) => C(M, k) * C(N - M, n - k) / C(N, n));
+function erf(x) {
+  const s = Math.sign(x); x = Math.abs(x);
+  const t = 1 / (1 + 0.3275911 * x);
+  const y = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+  return s * y;
+}
+const Phi = z => 0.5 * (1 + erf(z / Math.SQRT2));
+const pNorm = (a, b) => Phi((b - st.mu) / st.sg) - Phi((a - st.mu) / st.sg);
+
+function dists() {
+  const { N, M, n, p } = st;
+  if (st.mode === 'binom') return [{ P: binom(n, p), color: '#dc2626', label: `B(${n}, ${num(p)})` }];
+  if (st.mode === 'hyper') return [{ P: hyper(N, M, n), color: '#2563eb', label: `超几何 H(${N}, ${M}, ${n})` }];
+  return [{ P: binom(n, M / N), color: '#dc2626', label: `有放回 B(${n}, ${M}/${N})` }, { P: hyper(N, M, n), color: '#2563eb', label: `不放回 H(${N}, ${M}, ${n})` }];
+}
+
+const P = Plane.plane($('cv'), { xmin: -1, xmax: 11, ymin: -0.03, ymax: 0.4, equal: false, pan: false, draw });
+
+function draw(P) {
+  if (st.mode === 'normal') return drawNormal(P);
+  const ds = dists(), n = st.n, w = ds.length > 1 ? 0.38 : 0.7;
+  P.grid({ xl: 'k', yl: 'P(X = k)', intX: true });
+  ds.forEach((d, j) => {
+    const off = ds.length > 1 ? (j - 0.5) * w : 0;
+    d.P.forEach((v, k) => {
+      if (v < 1e-12) return;
+      const inR = k >= Math.min(st.k1, st.k2) && k <= Math.max(st.k1, st.k2);
+      P.poly([[k + off - w / 2, 0], [k + off + w / 2, 0], [k + off + w / 2, v], [k + off - w / 2, v]], inR ? d.color + '88' : d.color + '33', d.color, 1.2);
+      if (n <= 14 && ds.length === 1 && v >= 0.0005) P.label(num(v, 3), k, v, d.color, { dy: -10, size: 11 });
+    });
+  });
+  if (st.sim) st.sim.freq.forEach((f, k) => { if (f > 0) P.pt(k, f, '#111827', null, { r: 4 }); });
+  const E = ds[0].P.reduce((s, v, k) => s + k * v, 0);
+  P.line(E, 0, 0, 1, '#7c3aed', 1.4, [6, 4]);
+  P.label(`E(X) = ${num(E, 3)}`, E, P.vis().y1, '#7c3aed', { dx: 6, dy: 14, align: 'left', bold: true, size: 12 });
+  ds.forEach((d, j) => P.corner(d.label, d.color, 'left', j));
+  if (st.sim) P.corner(`黑点：模拟 ${st.sim.total} 次的频率`, '#111827', 'right');
+}
+
+function drawNormal(P) {
+  const { mu, sg } = st, f = x => Math.exp(-((x - mu) ** 2) / (2 * sg * sg)) / (sg * Math.sqrt(2 * Math.PI));
+  P.grid({ yl: 'f(x)' });
+  const a = Math.min(st.na, st.nb), b = Math.max(st.na, st.nb);
+  P.band(f, () => 0, a, b, 'rgba(220,38,38,.22)');
+  [1, 2, 3].forEach(k => { [-1, 1].forEach(s => P.line(mu + s * k * sg, 0, 0, 1, 'rgba(107,114,128,.25)', 1, [3, 4])); P.label(`μ+${k}σ`, mu + k * sg, 0, '#9ca3af', { dy: 26, size: 10 }); });
+  P.line(mu, 0, 0, 1, '#7c3aed', 1.4, [6, 4]);
+  P.fn(f, '#dc2626', 2.8);
+  P.label(`P(${num(a, 2)} ≤ X ≤ ${num(b, 2)}) = ${num(pNorm(a, b), 4)}`, (a + b) / 2, f((a + b) / 2) / 2, '#991b1b', { bold: true, size: 13 });
+  P.corner(`X ~ N(${num(mu)}, ${num(sg)}²)　峰值 1/(σ√(2π)) = ${num(f(mu), 4)}`, '#dc2626');
+}
+
+function fitWindow() {
+  if (st.mode === 'normal') { P.setWindow(st.mu - 4.2 * st.sg, st.mu + 4.2 * st.sg, -0.08 / st.sg, 0.5 / st.sg); return; }
+  const mx = Math.max(...dists().flatMap(d => d.P), st.sim ? Math.max(...st.sim.freq) : 0);
+  P.setWindow(-1, st.n + 1, -mx * 0.08, mx * 1.2);
+}
+
+function simulate() {
+  const { N, M, n, p } = st, freq = Array(n + 1).fill(0), T = 1000;
+  for (let t = 0; t < T; t++) {
+    let x = 0;
+    if (st.mode === 'binom') { for (let i = 0; i < n; i++) if (Math.random() < p) x++; }
+    else {
+      let bad = M, all = N;
+      for (let i = 0; i < n; i++) { if (Math.random() < bad / all) { x++; bad--; } all--; }
+    }
+    freq[x]++;
+  }
+  const prev = st.sim && st.sim.raw.length === n + 1 ? st.sim : { raw: Array(n + 1).fill(0), total: 0 };
+  prev.raw = prev.raw.map((v, k) => v + freq[k]); prev.total += T;
+  prev.freq = prev.raw.map(v => v / prev.total);
+  st.sim = prev;
+}
+
+function updatePanel() {
+  let h = '';
+  const { N, M, n, p } = st;
+  if (st.mode === 'normal') {
+    const { mu, sg } = st, a = Math.min(st.na, st.nb), b = Math.max(st.na, st.nb);
+    h += `<div class="node"><span class="f">标准化</span> Z = (X − μ)/σ<br><span class="v">P(${num(a, 2)} ≤ X ≤ ${num(b, 2)}) = Φ(${num((b - mu) / sg, 3)}) − Φ(${num((a - mu) / sg, 3)}) = ${num(pNorm(a, b), 4)}</span></div>`;
+    h += `<div class="node"><span class="f">3σ 原则</span><br><span class="v">P(μ − σ ≤ X ≤ μ + σ) = ${num(pNorm(mu - sg, mu + sg), 4)}</span><br><span class="v">P(μ − 2σ ≤ X ≤ μ + 2σ) = ${num(pNorm(mu - 2 * sg, mu + 2 * sg), 4)}</span><br><span class="v">P(μ − 3σ ≤ X ≤ μ + 3σ) = ${num(pNorm(mu - 3 * sg, mu + 3 * sg), 4)}</span></div>`;
+    h += `<div class="node"><span class="f">对称性</span><br><span class="v">P(X > ${num(a, 2)}) = P(X < ${num(2 * mu - a, 2)}) = ${num(1 - Phi((a - mu) / sg), 4)}</span><br><span class="n">关于 x = μ 对称：P(X < μ − a) = P(X > μ + a)；P(X < μ) = 0.5。σ 越小，曲线越"瘦高"，数据越集中。</span></div>`;
+  } else {
+    const ds = dists(), lo = Math.min(st.k1, st.k2), hi = Math.max(st.k1, st.k2);
+    ds.forEach(d => {
+      const E = d.P.reduce((s, v, k) => s + k * v, 0), D = d.P.reduce((s, v, k) => s + (k - E) ** 2 * v, 0);
+      const pr = d.P.slice(lo, hi + 1).reduce((s, v) => s + v, 0);
+      const best = d.P.indexOf(Math.max(...d.P));
+      h += `<div class="node"><span class="f" style="color:${d.color}">${d.label}</span><br><span class="v">E(X) = ${num(E, 4)}，D(X) = ${num(D, 4)}</span><br><span class="v">P(${lo} ≤ X ≤ ${hi}) = ${num(pr, 4)}</span><br><span class="n">概率最大的 k = ${best}${d.P.some((v, k) => k !== best && Math.abs(v - d.P[best]) < 1e-12) ? `（与 k = ${d.P.findIndex((v, k) => k !== best && Math.abs(v - d.P[best]) < 1e-12)} 并列）` : ''}</span></div>`;
+    });
+    const k = lo;
+    if (st.mode === 'binom') h += `<div class="node"><span class="f">公式（以 k = ${k} 为例）</span><br><span class="v">P(X = ${k}) = C(${n}, ${k})·${num(p)}^${k}·${num(1 - p)}^${n - k} = ${num(C(n, k), 0)} × ${num(p ** k, 6)} × ${num((1 - p) ** (n - k), 6)} = ${num(binom(n, p)[k], 5)}</span><br><span class="n">E(X) = np = ${num(n * p, 4)}，D(X) = np(1 − p) = ${num(n * p * (1 - p), 4)}</span></div>`;
+    if (st.mode === 'hyper') h += `<div class="node"><span class="f">公式（以 k = ${k} 为例）</span><br><span class="v">P(X = ${k}) = C(${M}, ${k})·C(${N - M}, ${n - k}) / C(${N}, ${n}) = ${num(C(M, k), 0)} × ${num(C(N - M, n - k), 0)} / ${num(C(N, n), 0)} = ${num(hyper(N, M, n)[k] || 0, 5)}</span><br><span class="n">E(X) = nM/N = ${num(n * M / N, 4)}</span></div>`;
+    if (st.mode === 'compare') h += `<div class="node ok"><span class="f">期望相同，方差不同</span><br><span class="n">两者 E(X) 都等于 nM/N = ${num(n * M / N, 4)}；不放回的方差多乘了 (N − n)/(N − 1) = ${num((N - n) / (N - 1), 4)}，更集中。把 N 调大，两种分布越来越接近。</span></div>`;
+    if (st.sim) {
+      const fr = st.sim.freq.slice(lo, hi + 1).reduce((s, v) => s + v, 0), mean = st.sim.freq.reduce((s, v, k) => s + k * v, 0);
+      h += `<div class="node"><span class="f">模拟 ${st.sim.total} 次</span><br><span class="v">样本均值 = ${num(mean, 4)}，${lo} ≤ X ≤ ${hi} 的频率 = ${num(fr, 4)}</span><br><span class="n">次数越多，频率越稳定在概率附近（大数定律）。</span></div>`;
+    }
+  }
+  $('chain').innerHTML = h;
+  const tips = {
+    binom: '<b>二项分布</b>：同一试验独立重复 n 次（如有放回地抽取、多次投篮），每次成功概率都是 p，X 是成功次数。',
+    hyper: '<b>超几何分布</b>：N 件产品中有 M 件次品，<b>不放回</b>地抽 n 件，X 是抽到的次品数。',
+    compare: '同样的 N、M、n，红色是有放回（二项），蓝色是不放回（超几何）。先判断题目是哪一种，再套公式。',
+    normal: '<b>正态分布</b> N(μ, σ²)：钟形曲线关于 x = μ 对称，曲线下总面积为 1，区间上的面积就是概率。',
+  };
+  $('tip').innerHTML = tips[st.mode];
+  $('hint').textContent = st.mode === 'normal' ? '调整 μ、σ 和区间端点，阴影面积就是概率' : '深色柱子是选中的区间 k₁ ≤ X ≤ k₂';
+}
+
+function render() { fitWindow(); updatePanel(); }
+
+const show = (id, on) => { $(id).style.display = on ? '' : 'none'; };
+const setMode = Lab.seg('mode', v => switchMode(v));
+function switchMode(v) {
+  st.mode = v; st.sim = null; setMode(v);
+  show('ctlDisc', v !== 'normal'); show('ctlNorm', v === 'normal');
+  show('rowN', v !== 'binom'); show('rowM', v !== 'binom'); show('rowP', v === 'binom');
+  show('sim', v !== 'compare'); show('clear', v !== 'compare');
+  clampDisc(); render();
+}
+function clampDisc() {
+  if (st.mode !== 'binom') { st.M = Math.min(st.M, st.N); st.n = Math.min(st.n, st.N); Lab.setRange('M', st.M); Lab.setRange('n', st.n); }
+  const n = st.n; ['k1', 'k2'].forEach(k => { st[k] = Math.min(st[k], n); $(k).max = n; Lab.setRange(k, st[k]); });
+  $('M').max = st.N; $('n').max = st.mode === 'binom' ? 30 : Math.min(30, st.N);
+}
+['N', 'M', 'n'].forEach(k => Lab.range(k, v => String(v), v => { st[k] = v; st.sim = null; clampDisc(); render(); }));
+Lab.range('p', v => num(v), v => { st.p = v; st.sim = null; render(); });
+['k1', 'k2'].forEach(k => Lab.range(k, v => String(v), v => { st[k] = v; render(); }));
+Lab.range('mu', v => num(v), v => { st.mu = v; render(); });
+Lab.range('sg', v => num(v), v => { st.sg = v; render(); });
+Lab.range('na', v => num(v), v => { st.na = v; render(); });
+Lab.range('nb', v => num(v), v => { st.nb = v; render(); });
+const sym = k => () => { st.na = Math.round((st.mu - k * st.sg) * 10) / 10; st.nb = Math.round((st.mu + k * st.sg) * 10) / 10; Lab.setRange('na', st.na); Lab.setRange('nb', st.nb); render(); };
+$('s1').addEventListener('click', sym(1)); $('s2').addEventListener('click', sym(2)); $('s3').addEventListener('click', sym(3));
+$('sim').addEventListener('click', () => { simulate(); render(); });
+$('clear').addEventListener('click', () => { st.sim = null; render(); });
+
+function apply(mode, o) {
+  Object.assign(st, o);
+  ['N', 'M', 'n', 'p', 'k1', 'k2', 'mu', 'sg', 'na', 'nb'].forEach(k => Lab.setRange(k, st[k]));
+  switchMode(mode);
+}
+Lab.presets('presets', [
+  ['投篮 10 次，命中率 0.3', () => apply('binom', { n: 10, p: 0.3, k1: 3, k2: 3 })],
+  ['概率最大的 k 有两个', () => apply('binom', { n: 9, p: 0.3, k1: 2, k2: 3 })],
+  ['20 件中 6 件次品，抽 5 件', () => apply('hyper', { N: 20, M: 6, n: 5, k1: 1, k2: 2 })],
+  ['有放回 vs 不放回', () => apply('compare', { N: 12, M: 4, n: 6, k1: 2, k2: 2 })],
+  ['N 很大时两者接近', () => apply('compare', { N: 50, M: 15, n: 6, k1: 2, k2: 2 })],
+  ['正态：μ ± σ 约 68%', () => apply('normal', { mu: 0, sg: 1, na: -1, nb: 1 })],
+  ['正态：用对称性求概率', () => apply('normal', { mu: 2, sg: 1, na: 3, nb: 6 })],
+]);
+switchMode('binom');
+</script>
+</body>
+</html>

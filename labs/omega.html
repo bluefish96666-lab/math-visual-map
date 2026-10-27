@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ω 的取值范围 · 交互实验</title>
+<link rel="stylesheet" href="../assets/lab.css">
+</head>
+<body>
+<div id="top"><a href="../index.html">← 知识地图</a><b>ω 的取值范围</b><span class="crumb">必修第一册 · 第五章 三角函数 · y = A sin(ωx + φ)</span></div>
+<div id="app">
+  <div id="left">
+    <div class="stage"><canvas id="cv"></canvas><div class="hint">上图：x 轴上的 f(x)；下图：整体换元后的 sin t</div></div>
+    <div class="chartWrap"><canvas id="cv2"></canvas></div>
+  </div>
+  <aside id="panel">
+    <div class="tip"><b>整体换元</b>：令 t = ωx + φ，x 在区间里走一遍，t 就从 φ 走到 <b>T = ωm + φ</b>。数零点、极值点只需看 sin t 在 [φ, T] 上的情况，于是条件变成 T 的范围，再解出 ω。拖动下图的紫色竖线可以改变 ω。</div>
+
+    <h2>函数与区间</h2>
+    <div class="row">φ <input type="range" id="pf" min="-60" max="60" step="1" value="0"><span class="val" id="pfv"></span></div>
+    <div class="row">m <input type="range" id="pm" min="1" max="48" step="1" value="12"><span class="val" id="pmv"></span></div>
+    <div class="seg" id="iv"><button data-v="oo" class="on">(0, m)</button><button data-v="cc">[0, m]</button><button data-v="co">[0, m)</button><button data-v="oc">(0, m]</button></div>
+    <div class="row">ω <input type="range" id="w" min="0.05" max="12" step="0.01" value="1"><span class="val" id="wv"></span></div>
+
+    <h2>条件</h2>
+    <div class="row"><select id="r0" style="width:62px"></select><input type="number" id="n0" min="0" max="12" value="2" style="width:44px"><span id="u0">个</span><select id="t0" style="flex:1;min-width:0"></select></div>
+    <div class="row"><label class="chk"><input type="checkbox" id="on1"> 且</label><select id="r1" style="width:62px"></select><input type="number" id="n1" min="0" max="12" value="2" style="width:44px"><span id="u1">个</span><select id="t1" style="flex:1;min-width:0"></select></div>
+
+    <h2>高考题型</h2>
+    <div class="grid" id="presets"></div>
+
+    <h2>分析</h2>
+    <div class="chain" id="chain"></div>
+
+    <h2>常用结论</h2>
+    <details open>
+      <summary>解题套路</summary>
+      <ul>
+        <li>ω > 0 时，x ∈ (0, m) ⇒ t = ωx + φ ∈ (φ, ωm + φ)，左端点 φ 固定，只有右端点 T = ωm + φ 随 ω 移动。</li>
+        <li>sin t 的零点 t = kπ，最大值点 t = π/2 + 2kπ，最小值点 t = 3π/2 + 2kπ，极值点（对称轴）t = π/2 + kπ。</li>
+        <li>"恰有 n 个"：T 落在第 n 个与第 n + 1 个特征点之间；端点取不取等号由区间开闭决定（闭区间端点上的零点也算）。</li>
+        <li>单调：(φ, T) 内不含极值点，即 T 不超过 φ 右侧第一个极值点；还要看 φ 处在增区间还是减区间。</li>
+        <li>cos ωx 型先化成 sin：cos ωx = sin(ωx + π/2)。</li>
+      </ul>
+    </details>
+  </aside>
+</div>
+
+<script src="../assets/lab.js"></script>
+<script src="../assets/plane.js"></script>
+<script>
+const { $, num } = Lab;
+// 角度一律用 π/60 为单位的整数：φ = pf，m = 5·pm，特征点是 30 的倍数（π/2 的整数倍）
+const TYPES = {
+  zero: { n: '零点', open: false, has: k => k % 2 === 0, col: '#16a34a' },
+  ext: { n: '极值点', open: true, has: k => k % 2 !== 0, col: '#7c3aed' },
+  max: { n: '最大值点（f = 1）', s: '最大值点', open: false, has: k => ((k % 4) + 4) % 4 === 1, col: '#dc2626' },
+  min: { n: '最小值点（f = −1）', s: '最小值点', open: false, has: k => ((k % 4) + 4) % 4 === 3, col: '#2563eb' },
+  mono: { n: '单调', mono: 0 },
+  inc: { n: '单调递增', mono: 1 },
+  dec: { n: '单调递减', mono: -1 },
+};
+const RELS = { eq: '恰有', ge: '至少', le: '至多' };
+const st = { pf: 0, pm: 12, iv: 'oo', w: 1, c: [{ t: 'zero', r: 'eq', n: 2 }, { on: false, t: 'ext', r: 'eq', n: 2 }] };
+const lc = () => st.iv[0] === 'c', rc = () => st.iv[1] === 'c';
+const rad = u => u * Math.PI / 60;
+const piS = u => Lab.pi(rad(u));
+const E = () => st.pf + 5 * st.pm * st.w;
+const EMAX = () => st.pf + 5 * st.pm * 12;
+
+// 区间 t ∈ <pf, e> 内某类特征点的个数
+function count(t, e) {
+  const T = TYPES[t];
+  let n = 0;
+  for (let k = Math.ceil(st.pf / 30); k * 30 <= e; k++) {
+    const q = k * 30;
+    if (!T.has(k)) continue;
+    if ((q > st.pf && q < e) || (!T.open && ((q === st.pf && lc()) || (q === e && rc())))) n++;
+  }
+  return n;
+}
+function holds(c, e) {
+  const T = TYPES[c.t];
+  if (T.mono !== undefined) {
+    if (count('ext', e) > 0) return false;
+    const s = Math.cos(rad((st.pf + e) / 2));
+    return T.mono === 0 || T.mono * s > 0;
+  }
+  const n = count(c.t, e);
+  return c.r === 'eq' ? n === c.n : c.r === 'ge' ? n >= c.n : n <= c.n;
+}
+const active = () => st.c.filter((c, i) => i === 0 || c.on);
+
+// 满足条件的 T（即 e）的集合：在相邻特征点之间分段检验，再合并
+function solve(conds) {
+  const els = [], emax = EMAX();
+  let prev = st.pf;
+  for (let k = Math.floor(st.pf / 30) + 1; k * 30 <= emax + 30; k++) {
+    const q = k * 30;
+    els.push({ lo: prev, hi: q, v: (prev + q) / 2 }, { lo: q, hi: q, v: q, pt: true });
+    prev = q;
+  }
+  els.push({ lo: prev, hi: Infinity, v: prev + 15 });
+  const out = [];
+  let cur = null;
+  for (const el of els) {
+    const ok = conds.every(c => holds(c, el.v));
+    if (ok) {
+      if (!cur) cur = { lo: el.lo, loC: !!el.pt };
+      cur.hi = el.hi; cur.hiC = !!el.pt;
+    } else if (cur) { out.push(cur); cur = null; }
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+const wOf = e => (e - st.pf) / (5 * st.pm);
+const wFrac = e => Lab.frac(e - st.pf, 5 * st.pm);
+const wSet = S => S.length ? S.map(I => `${I.loC ? '[' : '('}${wFrac(I.lo)}, ${I.hi === Infinity ? '+∞' : wFrac(I.hi)}${I.hiC ? ']' : ')'}`).join(' ∪ ') : '∅（无解）';
+const tSet = S => S.length ? S.map(I => {
+  const L = I.lo === st.pf && !I.loC ? '' : `${piS(I.lo)} ${I.loC ? '≤' : '<'} `;
+  const R = I.hi === Infinity ? '' : ` ${I.hiC ? '≤' : '<'} ${piS(I.hi)}`;
+  return L || R ? `${L}T${R}` : 'T > φ 均可';
+}).join(' 或 ') : '无解';
+const condName = c => TYPES[c.t].mono !== undefined ? `在区间上${TYPES[c.t].n}` : `${RELS[c.r]} ${c.n} 个${TYPES[c.t].s || TYPES[c.t].n}`;
+
+const P = Plane.plane($('cv'), { xmin: -0.5, xmax: 3.6, ymin: -1.7, ymax: 1.7, equal: false, piX: true, draw });
+const P2 = Plane.plane($('cv2'), { xmin: -1, xmax: 8, ymin: -1.5, ymax: 1.5, equal: false, piX: true, draw: draw2, pick: pick2, move: move2 });
+
+function marks(Q, f, a, b, fx) {
+  // 区间内的零点和极值点：t 坐标为 30k，换成画布横坐标用 fx
+  for (let k = Math.ceil(a / 30); k * 30 <= b; k++) {
+    const q = k * 30, inL = q > a || (q === a && lc()), inR = q < b || (q === b && rc());
+    if (!(inL && inR)) continue;
+    const t = TYPES[k % 2 === 0 ? 'zero' : ((k % 4) + 4) % 4 === 1 ? 'max' : 'min'];
+    Q.pt(fx(q), f(q), t.col, null, { r: 5 });
+  }
+}
+function hollow(Q, x, y, color, filled) {
+  const c = Q.ctx;
+  c.beginPath(); c.arc(Q.X(x), Q.Y(y), 5, 0, Math.PI * 2);
+  c.fillStyle = filled ? color : '#fff'; c.fill();
+  c.strokeStyle = color; c.lineWidth = 2; c.stroke();
+}
+
+function draw(P) {
+  const m = rad(5 * st.pm), phi = rad(st.pf), f = x => Math.sin(st.w * x + phi);
+  P.grid();
+  P.poly([[0, -1.25], [m, -1.25], [m, 1.25], [0, 1.25]], 'rgba(124,58,237,.07)');
+  P.line(0, 1, 1, 0, 'rgba(107,114,128,.35)', 1, [4, 4]);
+  P.line(0, -1, 1, 0, 'rgba(107,114,128,.35)', 1, [4, 4]);
+  P.fn(f, 'rgba(37,99,235,.3)', 1.6);
+  P.fn(f, '#2563eb', 2.8, null, 0, m);
+  marks(P, u => Math.sin(rad(u)), st.pf, E(), u => (rad(u) - phi) / st.w);
+  hollow(P, 0, f(0), '#111827', lc());
+  hollow(P, m, f(m), '#111827', rc());
+  P.label('m = ' + Lab.pi(m), m, -1.25, '#7c3aed', { dy: 16, bold: true });
+  const ok = active().every(c => holds(c, E()));
+  P.corner(`f(x) = sin(${num(st.w, 2)}x${st.pf ? (st.pf > 0 ? ' + ' : ' − ') + piS(Math.abs(st.pf)) : ''})`, '#2563eb');
+  P.corner(`x ∈ ${lc() ? '[' : '('}0, ${Lab.pi(m)}${rc() ? ']' : ')'}：${['zero', 'ext', 'max', 'min'].map(t => `${TYPES[t].s || TYPES[t].n} ${count(t, E())}`).join('，')}`, '#374151', 'left', 1);
+  P.corner(ok ? '✓ 满足条件' : '✗ 不满足条件', ok ? '#16a34a' : '#dc2626', 'right');
+}
+
+function draw2(Q) {
+  const e = E(), S = solve(active());
+  Q.grid({ xl: 't', yl: '' });
+  const v = Q.vis();
+  S.forEach(I => {
+    const a = rad(I.lo), b = I.hi === Infinity ? v.x1 + 1 : rad(I.hi);
+    Q.poly([[a, -1.35], [b, -1.35], [b, 1.35], [a, 1.35]], 'rgba(22,163,74,.13)');
+    if (I.lo > st.pf) Q.line(a, 0, 0, 1, '#16a34a', 1.6, I.loC ? null : [5, 4]);
+    if (I.hi !== Infinity) Q.line(b, 0, 0, 1, '#16a34a', 1.6, I.hiC ? null : [5, 4]);
+  });
+  Q.line(0, 1, 1, 0, 'rgba(107,114,128,.35)', 1, [4, 4]);
+  Q.line(0, -1, 1, 0, 'rgba(107,114,128,.35)', 1, [4, 4]);
+  Q.fn(Math.sin, 'rgba(17,24,39,.3)', 1.6);
+  Q.fn(Math.sin, '#ea580c', 3, null, rad(st.pf), rad(e));
+  marks(Q, u => Math.sin(rad(u)), st.pf, e, rad);
+  hollow(Q, rad(st.pf), Math.sin(rad(st.pf)), '#111827', lc());
+  hollow(Q, rad(e), Math.sin(rad(e)), '#7c3aed', rc());
+  Q.line(rad(e), 0, 0, 1, '#7c3aed', 2, [6, 4]);
+  Q.label('φ', rad(st.pf), Math.sin(rad(st.pf)), '#111827', { dx: -12, dy: -10, bold: true });
+  Q.label('T = ωm + φ', rad(e), 1.35, '#7c3aed', { dy: -4, bold: true });
+  Q.corner('y = sin t，橙色段 t ∈ ' + (lc() ? '[' : '(') + 'φ, T' + (rc() ? ']' : ')') + '，绿色是 T 的允许范围', '#374151');
+}
+function pick2(px) { return Math.abs(px - P2.X(rad(E()))) < 12 ? { k: 'T' } : null; }
+function move2(o, x) {
+  st.w = Math.max(0.05, Math.min(12, Math.round((x * 60 / Math.PI - st.pf) / (5 * st.pm) * 100) / 100));
+  Lab.setRange('w', st.w); update();
+}
+
+function fitView() {
+  const m = rad(5 * st.pm);
+  P.setWindow(-0.12 * m - 0.1, 1.12 * m + 0.1, -1.7, 1.7);
+  const S = solve(active()), fin = S.filter(I => I.hi !== Infinity).map(I => I.hi);
+  const hi = Math.max(E(), fin.length ? fin[0] : E(), st.pf + 60) + 25, lo = Math.min(st.pf, 0) - 20;
+  P2.setWindow(rad(lo), rad(hi), -1.6, 1.6);
+}
+
+function update() { P.redraw(); P2.redraw(); panel(); }
+
+function panel() {
+  const e = E(), conds = active(), m = Lab.pi(rad(5 * st.pm));
+  const mw = m.includes('/') ? `(${m})ω` : `${m}ω`, ph = st.pf ? (st.pf > 0 ? ' + ' : ' − ') + piS(Math.abs(st.pf)) : '';
+  const L = lc() ? '[' : '(', R = rc() ? ']' : ')';
+  let h = `<div class="node"><span class="f">① 整体换元 t = ωx + φ</span><br><span class="v">x ∈ ${L}0, ${m}${R} ⇒ t ∈ ${L}${piS(st.pf)}, ${mw}${ph}${R}</span><br><span class="n">记 T = ${mw}${ph}，ω 增大时 T 向右移动</span></div>`;
+  conds.forEach((c, i) => {
+    const T = TYPES[c.t];
+    const where = T.mono !== undefined ? `(φ, T) 内不能有极值点 t = π/2 + kπ${T.mono ? `，且 φ 处于${T.mono > 0 ? '增' : '减'}区间` : ''}` : `${T.s || T.n}：t = ${{ zero: 'kπ', ext: 'π/2 + kπ', max: 'π/2 + 2kπ', min: '3π/2 + 2kπ' }[c.t]}${T.open ? '（只算区间内部）' : ''}`;
+    h += `<div class="link">↓</div><div class="node"><span class="f">${'②③'[i]} ${condName(c)}</span><br><span class="n">${where}</span><br><span class="v">⇔ ${tSet(solve([c]))}</span></div>`;
+  });
+  const S = solve(conds), ok = conds.every(c => holds(c, e));
+  h += `<div class="link">↓ 由 T = ${mw}${ph} 解出 ω</div><div class="node ok"><span class="f">结论</span><br><span class="v">ω ∈ ${wSet(S)}</span></div>`;
+  h += `<div class="node ${ok ? 'ok' : 'warn'}"><span class="f">当前 ω = ${num(st.w, 2)}：${ok ? '满足' : '不满足'}</span><br><span class="n">T = ${num(rad(e) / Math.PI, 3)}π；零点 ${count('zero', e)} 个，极值点 ${count('ext', e)} 个，最大值点 ${count('max', e)} 个，最小值点 ${count('min', e)} 个</span></div>`;
+  $('chain').innerHTML = h;
+}
+
+const typeOpts = Object.entries(TYPES).map(([k, t]) => `<option value="${k}">${t.n}</option>`).join('');
+const relOpts = Object.entries(RELS).map(([k, s]) => `<option value="${k}">${s}</option>`).join('');
+function syncCond(i) {
+  const c = st.c[i], mono = TYPES[c.t].mono !== undefined;
+  $('t' + i).value = c.t; $('r' + i).value = c.r; $('n' + i).value = c.n;
+  ['r', 'n', 'u'].forEach(p => { $(p + i).style.display = mono ? 'none' : ''; });
+  if (i) $('on1').checked = c.on;
+}
+[0, 1].forEach(i => {
+  $('t' + i).innerHTML = typeOpts; $('r' + i).innerHTML = relOpts;
+  $('t' + i).addEventListener('change', e => { st.c[i].t = e.target.value; syncCond(i); fitView(); update(); });
+  $('r' + i).addEventListener('change', e => { st.c[i].r = e.target.value; update(); });
+  $('n' + i).addEventListener('input', e => { st.c[i].n = Math.max(0, Math.round(+e.target.value || 0)); fitView(); update(); });
+  syncCond(i);
+});
+$('on1').addEventListener('change', e => { st.c[1].on = e.target.checked; update(); });
+Lab.range('pf', v => piS(v), v => { st.pf = v; fitView(); update(); });
+Lab.range('pm', v => Lab.pi(rad(5 * v)), v => { st.pm = v; fitView(); update(); });
+Lab.range('w', v => num(v, 2), v => { st.w = v; update(); });
+const setIv = Lab.seg('iv', v => { st.iv = v; update(); });
+
+function apply(pf, pm, iv, c0, c1) {
+  Object.assign(st, { pf, pm, iv });
+  st.c[0] = { t: c0[0], r: c0[1] || 'eq', n: c0[2] ?? 0 };
+  st.c[1] = c1 ? { on: true, t: c1[0], r: c1[1] || 'eq', n: c1[2] ?? 0 } : { ...st.c[1], on: false };
+  const S = solve(active());
+  if (S.length) { const I = S[0]; st.w = Math.round(wOf(I.hi === Infinity ? I.lo + 15 : (I.lo + I.hi) / 2) * 100) / 100; }
+  Lab.setRange('pf', pf); Lab.setRange('pm', pm); Lab.setRange('w', st.w); setIv(iv);
+  syncCond(0); syncCond(1); fitView(); update();
+}
+Lab.presets('presets', [
+  ['2022 甲卷：(0, π) 恰 3 个极值点、2 个零点，φ = π/3', () => apply(20, 12, 'oo', ['ext', 'eq', 3], ['zero', 'eq', 2])],
+  ['2019 Ⅲ卷：[0, 2π] 有且仅有 5 个零点，φ = π/5', () => apply(12, 24, 'cc', ['zero', 'eq', 5])],
+  ['2023 新高考Ⅰ：cos ωx − 1 在 [0, 2π] 有 3 个零点', () => apply(30, 24, 'cc', ['max', 'eq', 3])],
+  ['(0, π/3) 上单调递增，φ = π/6', () => apply(10, 4, 'oo', ['inc'])],
+  ['(0, π) 上恰有 1 个最大值点', () => apply(0, 12, 'oo', ['max', 'eq', 1])],
+  ['[0, π] 上恰有 2 个零点', () => apply(0, 12, 'cc', ['zero', 'eq', 2])],
+  ['sin(ωx − π/3) 在 (0, π) 恰 2 个零点', () => apply(-20, 12, 'oo', ['zero', 'eq', 2])],
+  ['(0, π) 上至少 2 个最大值点', () => apply(0, 12, 'oo', ['max', 'ge', 2])],
+]);
+apply(20, 12, 'oo', ['ext', 'eq', 3], ['zero', 'eq', 2]);
+</script>
+</body>
+</html>

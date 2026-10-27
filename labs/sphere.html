@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>外接球与内切球 · 交互实验</title>
+<link rel="stylesheet" href="../assets/lab.css">
+</head>
+<body>
+<div id="top"><a href="../index.html">← 知识地图</a><b>外接球与内切球</b><span class="crumb">必修第二册 · 第八章 立体几何初步</span></div>
+<div id="app">
+  <div id="left">
+    <div class="stage"><canvas id="cv"></canvas><div class="hint">按住拖动旋转，滚轮缩放；紫色是外接球，橙色三角形是 R² = r² + d²</div></div>
+  </div>
+  <aside id="panel">
+    <div class="tip">求外接球的两条路：<b>补形</b>（墙角、正四面体补成长方体或正方体，体对角线就是直径）；<b>找球心</b>（球心在过底面外心、垂直于底面的直线上，列 R² = r² + d²）。</div>
+
+    <h2>几何体</h2>
+    <div class="row"><select id="model" style="width:100%;min-width:0"></select></div>
+    <div class="row" id="r1"><span id="l1"></span> <input type="range" id="s1" min="0.5" max="4" step="0.5" value="1"><span class="val" id="s1v"></span></div>
+    <div class="row" id="r2"><span id="l2"></span> <input type="range" id="s2" min="0.5" max="4" step="0.5" value="2"><span class="val" id="s2v"></span></div>
+    <div class="row" id="r3"><span id="l3"></span> <input type="range" id="s3" min="0.5" max="4" step="0.5" value="3"><span class="val" id="s3v"></span></div>
+    <div class="row" id="r4"><span id="l4"></span> <input type="range" id="s4" min="30" max="150" step="15" value="90"><span class="val" id="s4v"></span></div>
+    <div class="row">
+      <label class="chk"><input type="checkbox" id="showOut" checked> 外接球</label>
+      <label class="chk" id="inWrap"><input type="checkbox" id="showIn"> 内切球</label>
+      <label class="chk"><input type="checkbox" id="showHull" checked> 补形 / 球心三角形</label>
+    </div>
+
+    <h2>高考题型</h2>
+    <div class="grid" id="presets"></div>
+
+    <h2>计算过程</h2>
+    <div class="chain" id="chain"></div>
+
+    <h2>常用结论</h2>
+    <details open>
+      <summary>拖一拖，验证这些结论</summary>
+      <ul>
+        <li>长方体：2R = √(a² + b² + c²)；正方体棱长 a：外接球 R = √3a/2，内切球 r = a/2，棱切球 √2a/2。</li>
+        <li>墙角模型（三条棱两两垂直）：补成长方体，2R = √(a² + b² + c²)。</li>
+        <li>正四面体棱长 a：R = √6a/4，r = √6a/12，R = 3r；球心是高的四等分点。</li>
+        <li>直棱柱、侧棱垂直底面的锥：R² = r² + (h/2)²，r 是底面外接圆半径（r = 对边/(2sin 对角)）。</li>
+        <li>正棱锥：球心在高上，(h − R)² + r² = R²，R = (h² + r²)/(2h)；h < r 时球心在底面下方。</li>
+        <li>内切球：r = 3V / S表（等体积法）。</li>
+      </ul>
+    </details>
+  </aside>
+</div>
+
+<script src="../assets/lab.js"></script>
+<script src="../assets/plane.js"></script>
+<script>
+const { $, num } = Lab;
+const add = (u, v) => u.map((x, i) => x + v[i]), sub = (u, v) => u.map((x, i) => x - v[i]), mul = (k, u) => u.map(x => k * x);
+const dot = (u, v) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+const cross = (u, v) => [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+const len = u => Math.sqrt(dot(u, u));
+const D = Math.PI / 180;
+const dn = n => n.replace(/(\d+)/, d => Lab.sub(d));
+const sq = v => `${num(v, 4)}`;
+
+// 每种几何体：参数标签、顶点、面、底面（找球心用）、补形框
+const MODELS = {
+  box: {
+    name: '长方体', labels: ['长 a', '宽 b', '高 c'],
+    build: ([a, b, c]) => ({
+      V: { A: [0, 0, 0], B: [a, 0, 0], C: [a, b, 0], D: [0, b, 0], A1: [0, 0, c], B1: [a, 0, c], C1: [a, b, c], D1: [0, b, c] },
+      F: [['A', 'B', 'C', 'D'], ['A1', 'B1', 'C1', 'D1'], ['A', 'B', 'B1', 'A1'], ['B', 'C', 'C1', 'B1'], ['C', 'D', 'D1', 'C1'], ['D', 'A', 'A1', 'D1']],
+      base: ['A', 'B', 'C', 'D'],
+    }),
+  },
+  corner: {
+    name: '墙角三棱锥 P-ABC（PA、PB、PC 两两垂直）', labels: ['PA', 'PB', 'PC'],
+    build: ([a, b, c]) => ({
+      V: { P: [0, 0, 0], A: [a, 0, 0], B: [0, b, 0], C: [0, 0, c] },
+      F: [['P', 'A', 'B'], ['P', 'B', 'C'], ['P', 'C', 'A'], ['A', 'B', 'C']],
+      hull: [a, b, c],
+    }),
+  },
+  tetra: {
+    name: '正四面体 ABCD', labels: ['棱长 a'],
+    build: ([a]) => { const s = a / Math.SQRT2; return {
+      V: { A: [0, 0, 0], B: [s, s, 0], C: [s, 0, s], D: [0, s, s] },
+      F: [['A', 'B', 'C'], ['A', 'B', 'D'], ['A', 'C', 'D'], ['B', 'C', 'D']],
+      hull: [s, s, s], base: ['B', 'C', 'D'],
+    }; },
+  },
+  prism: {
+    name: '直三棱柱 ABC-A₁B₁C₁', labels: ['AB', 'AC', '高 h = AA₁', '∠BAC'],
+    build: ([a, b, h, t]) => { const C = [b * Math.cos(t * D), b * Math.sin(t * D)]; return {
+      V: { A: [0, 0, 0], B: [a, 0, 0], C: [C[0], C[1], 0], A1: [0, 0, h], B1: [a, 0, h], C1: [C[0], C[1], h] },
+      F: [['A', 'B', 'C'], ['A1', 'B1', 'C1'], ['A', 'B', 'B1', 'A1'], ['B', 'C', 'C1', 'B1'], ['C', 'A', 'A1', 'C1']],
+      base: ['A', 'B', 'C'],
+    }; },
+  },
+  pyrPA: {
+    name: '三棱锥 P-ABC（PA ⊥ 底面）', labels: ['AB', 'AC', 'PA', '∠BAC'],
+    build: ([a, b, h, t]) => ({
+      V: { A: [0, 0, 0], B: [a, 0, 0], C: [b * Math.cos(t * D), b * Math.sin(t * D), 0], P: [0, 0, h] },
+      F: [['A', 'B', 'C'], ['P', 'A', 'B'], ['P', 'B', 'C'], ['P', 'C', 'A']],
+      base: ['A', 'B', 'C'],
+    }),
+  },
+  regpyr: {
+    name: '正四棱锥 P-ABCD', labels: ['底面边长 a', '高 h'],
+    build: ([a, h]) => ({
+      V: { A: [-a / 2, -a / 2, 0], B: [a / 2, -a / 2, 0], C: [a / 2, a / 2, 0], D: [-a / 2, a / 2, 0], P: [0, 0, h] },
+      F: [['A', 'B', 'C', 'D'], ['P', 'A', 'B'], ['P', 'B', 'C'], ['P', 'C', 'D'], ['P', 'D', 'A']],
+      base: ['A', 'B', 'C', 'D'],
+    }),
+  },
+};
+const st = { model: 'box', s: [1, 2, 3, 90], yaw: -0.6, pitch: 0.38, zoom: 1, showOut: true, showIn: false, showHull: true };
+const M = () => MODELS[st.model];
+const G = () => M().build(st.s);
+
+// 3×3 线性方程组（高斯消元）
+function solve3(A, b) {
+  const m = A.map((r, i) => [...r, b[i]]);
+  for (let i = 0; i < 3; i++) {
+    let p = i; for (let k = i + 1; k < 3; k++) if (Math.abs(m[k][i]) > Math.abs(m[p][i])) p = k;
+    [m[i], m[p]] = [m[p], m[i]];
+    if (Math.abs(m[i][i]) < 1e-12) return null;
+    for (let k = 0; k < 3; k++) if (k !== i) { const f = m[k][i] / m[i][i]; for (let j = i; j < 4; j++) m[k][j] -= f * m[i][j]; }
+  }
+  return m.map((r, i) => r[3] / r[i]);
+}
+// 外接球：到所有顶点距离相等的点（最小二乘）
+function circumsphere(V) {
+  const P = Object.values(V), P0 = P[0];
+  const rows = P.slice(1).map(p => mul(2, sub(p, P0))), rhs = P.slice(1).map(p => dot(p, p) - dot(P0, P0));
+  const AtA = [0, 1, 2].map(i => [0, 1, 2].map(j => rows.reduce((s, r) => s + r[i] * r[j], 0)));
+  const Atb = [0, 1, 2].map(i => rows.reduce((s, r, k) => s + r[i] * rhs[k], 0));
+  const O = solve3(AtA, Atb);
+  const ds = P.map(p => len(sub(p, O)));
+  return { O, R: ds[0], ok: Math.max(...ds) - Math.min(...ds) < 1e-6 };
+}
+function faceInfo(g) {
+  const V = g.V, ctr = mul(1 / Object.keys(V).length, Object.values(V).reduce(add, [0, 0, 0]));
+  return g.F.map(f => {
+    const P = f.map(n => V[n]);
+    let n = [0, 0, 0];
+    for (let i = 1; i + 1 < P.length; i++) n = add(n, cross(sub(P[i], P[0]), sub(P[i + 1], P[0])));
+    const area = len(n) / 2; n = mul(1 / len(n), n);
+    if (dot(n, sub(P[0], ctr)) < 0) n = mul(-1, n);
+    return { f, P, n, area, d: dot(n, P[0]) };
+  });
+}
+// 内切球：到所有面距离相等的点；存在才返回
+function insphere(g) {
+  const fs = faceInfo(g), V = g.V, ctr = mul(1 / Object.keys(V).length, Object.values(V).reduce(add, [0, 0, 0]));
+  const S = fs.reduce((s, f) => s + f.area, 0);
+  const Vol = fs.reduce((s, f) => s + f.area * (f.d - dot(f.n, ctr)) / 3, 0);
+  const r = 3 * Vol / S;
+  // 球心 I 满足 n·I = d − r 对每个面成立（最小二乘）
+  const AtA = [0, 1, 2].map(i => [0, 1, 2].map(j => fs.reduce((s, f) => s + f.n[i] * f.n[j], 0)));
+  const Atb = [0, 1, 2].map(i => fs.reduce((s, f) => s + f.n[i] * (f.d - r), 0));
+  const I = solve3(AtA, Atb);
+  const ok = I && fs.every(f => Math.abs(f.d - dot(f.n, I) - r) < 1e-6);
+  return { r, I, ok, S, Vol };
+}
+
+// ---------- 投影 ----------
+const view = Lab.canvas($('cv'), () => draw());
+function projector(g, R) {
+  const P = Object.values(g.V), ctr = mul(1 / P.length, P.reduce(add, [0, 0, 0]));
+  const cy = Math.cos(st.yaw), sy = Math.sin(st.yaw), cp = Math.cos(st.pitch), sp = Math.sin(st.pitch);
+  const k = Math.min(view.W, view.H) / (2.7 * Math.max(R, 1)) * st.zoom;
+  const rot = p => { const [x, y, z] = sub(p, ctr), x1 = x * cy - y * sy, y1 = x * sy + y * cy; return [x1, z * cp + y1 * sp, z * sp - y1 * cp]; };
+  return { k, ctr, rot, pr: p => { const r = rot(p); return [view.W / 2 + r[0] * k, view.H / 2 - r[1] * k + 20, r[2]]; } };
+}
+function edgesOf(F) {
+  const m = new Map();
+  F.forEach(f => f.forEach((p, i) => { const q = f[(i + 1) % f.length], key = [p, q].sort().join('-'); if (!m.has(key)) m.set(key, { p, q, faces: [] }); m.get(key).faces.push(f); }));
+  return [...m.values()];
+}
+function drawSphere(c, pj, O, R, stroke, fill) {
+  const o = pj.pr(O);
+  c.beginPath(); c.arc(o[0], o[1], R * pj.k, 0, 2 * Math.PI);
+  c.fillStyle = fill; c.fill(); c.strokeStyle = stroke; c.lineWidth = 1.8; c.stroke();
+  c.save(); c.setLineDash([5, 5]); c.beginPath();
+  for (let i = 0; i <= 72; i++) { const a = i / 72 * 2 * Math.PI, q = pj.pr(add(O, [R * Math.cos(a), R * Math.sin(a), 0])); c[i ? 'lineTo' : 'moveTo'](q[0], q[1]); }
+  c.strokeStyle = stroke; c.lineWidth = 1; c.stroke(); c.restore();
+}
+
+function draw() {
+  if (!view.W) return;
+  view.begin();
+  const c = view.ctx, g = G(), cs = circumsphere(g.V), ins = insphere(g), pj = projector(g, cs.R);
+  const L = (a, b, color, w, dash) => { const p = pj.pr(a), q = pj.pr(b); Lab.line(c, p[0], p[1], q[0], q[1], color, w, dash); };
+  if (st.showOut) drawSphere(c, pj, cs.O, cs.R, 'rgba(124,58,237,.75)', 'rgba(124,58,237,.06)');
+  if (st.showIn && ins.ok) drawSphere(c, pj, ins.I, ins.r, 'rgba(234,88,12,.85)', 'rgba(234,88,12,.12)');
+  // 补形的长方体
+  if (st.showHull && g.hull) {
+    const [a, b, h] = g.hull, cnr = [[0, 0, 0], [a, 0, 0], [a, b, 0], [0, b, 0], [0, 0, h], [a, 0, h], [a, b, h], [0, b, h]];
+    [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]].forEach(([i, j]) => L(cnr[i], cnr[j], 'rgba(37,99,235,.45)', 1.3, [4, 4]));
+    L(cnr[0], cnr[6], 'rgba(124,58,237,.8)', 1.6, [7, 4]);
+  }
+  // 棱：相邻面朝向观察者的为实线
+  const fs = faceInfo(g), front = f => pj.rot(add(fs.find(x => x.f === f).n, pj.ctr))[2] - pj.rot(pj.ctr)[2] > 0;
+  edgesOf(g.F).forEach(e => { const vis = e.faces.some(front); L(g.V[e.p], g.V[e.q], vis ? '#111827' : '#9ca3af', vis ? 2 : 1.4, vis ? null : [6, 5]); });
+  // 球心三角形 R² = r² + d²
+  if (st.showHull && g.base && cs.ok) {
+    const B = g.base.map(n => g.V[n]), n = faceInfo({ V: g.V, F: [g.base] })[0].n;
+    const O1 = sub(cs.O, mul(dot(n, sub(cs.O, B[0])), n)), V0 = B[0];
+    c.save();
+    const p = [cs.O, O1, V0].map(pj.pr);
+    c.beginPath(); p.forEach((q, i) => c[i ? 'lineTo' : 'moveTo'](q[0], q[1])); c.closePath(); c.fillStyle = 'rgba(234,88,12,.12)'; c.fill(); c.restore();
+    L(cs.O, O1, '#ea580c', 2.4); L(O1, V0, '#16a34a', 2.4); L(cs.O, V0, '#7c3aed', 2.4);
+    const lab = (a, b, s, col) => { const m = pj.pr(mul(0.5, add(a, b))); Lab.text(c, s, m[0] + 10, m[1] - 8, col, { size: 13, bold: true, align: 'left' }); };
+    lab(cs.O, O1, 'd', '#ea580c'); lab(O1, V0, 'r', '#16a34a'); lab(cs.O, V0, 'R', '#7c3aed');
+    const q = pj.pr(O1); Lab.dot(c, q[0], q[1], 4.5, '#16a34a'); Lab.text(c, 'O₁', q[0] + 12, q[1] + 12, '#16a34a', { size: 13, bold: true });
+  }
+  if (st.showOut) { const o = pj.pr(cs.O); Lab.dot(c, o[0], o[1], 5, '#7c3aed'); Lab.text(c, 'O', o[0] - 12, o[1] - 10, '#7c3aed', { size: 14, bold: true }); }
+  const pc = pj.pr(pj.ctr);
+  Object.entries(g.V).forEach(([nm, p]) => {
+    const q = pj.pr(p), dx = q[0] - pc[0], dy = q[1] - pc[1], d = Math.hypot(dx, dy) || 1;
+    Lab.dot(c, q[0], q[1], 3.5, '#111827');
+    Lab.text(c, dn(nm), q[0] + dx / d * 16, q[1] + dy / d * 16, '#111827', { size: 14, bold: true });
+  });
+  Lab.text(c, `外接球 R = ${num(cs.R, 4)}${st.showIn && ins.ok ? `　内切球 r = ${num(ins.r, 4)}` : ''}`, 14, 22, '#7c3aed', { size: 14, bold: true, align: 'left' });
+}
+
+Lab.draggable($('cv'), {
+  pick: (x, y) => ({ x, y, yaw: st.yaw, pitch: st.pitch }),
+  move: (o, x, y) => { st.yaw = o.yaw + (x - o.x) * 0.01; st.pitch = Math.max(-1.4, Math.min(1.4, o.pitch + (y - o.y) * 0.01)); draw(); },
+});
+$('cv').addEventListener('wheel', e => { e.preventDefault(); st.zoom = Math.min(3, Math.max(0.4, st.zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1))); draw(); }, { passive: false });
+
+// ---------- 计算过程 ----------
+function panel() {
+  const g = G(), cs = circumsphere(g.V), ins = insphere(g), [a, b, c, t] = st.s;
+  const R2 = cs.R * cs.R;
+  let h = '';
+  const node = (f, body, cls = '') => `<div class="node ${cls}"><span class="f">${f}</span><br>${body}</div>`;
+  const v = s => `<span class="v">${s}</span>`, n = s => `<span class="n">${s}</span>`;
+  if (st.model === 'box') {
+    h += node('体对角线就是直径', v(`2R = √(a² + b² + c²) = √(${num(a * a)} + ${num(b * b)} + ${num(c * c)}) = √${num(a * a + b * b + c * c)}`) + '<br>' + v(`R² = ${sq(R2)}`));
+  } else if (st.model === 'corner') {
+    h += node('① 补形：以 PA、PB、PC 为棱补成长方体', n('三棱锥的四个顶点都是长方体的顶点，外接球相同。'));
+    h += '<div class="link">↓</div>' + node('② 长方体体对角线 = 直径', v(`2R = √(PA² + PB² + PC²) = √${num(a * a + b * b + c * c)}`) + '<br>' + v(`R² = ${sq(R2)}`));
+  } else if (st.model === 'tetra') {
+    h += node('① 补形：正四面体的棱是正方体的面对角线', v(`正方体棱长 = a/√2 = ${num(a / Math.SQRT2, 4)}`));
+    h += '<div class="link">↓</div>' + node('② 正方体体对角线 = 直径', v(`2R = √3 · a/√2 ⇒ R = √6a/4 = ${num(Math.sqrt(6) * a / 4, 4)}`));
+    h += node('③ 内切球', v(`r = √6a/12 = ${num(Math.sqrt(6) * a / 12, 4)}，R = 3r`) + '<br>' + n('球心在高上，把高分成 3 : 1（R 在上，r 在下）。'));
+  } else if (st.model === 'prism' || st.model === 'pyrPA') {
+    const BC = Math.sqrt(a * a + b * b - 2 * a * b * Math.cos(t * D)), r = BC / (2 * Math.sin(t * D));
+    h += node('① 底面 △ABC 的外接圆半径 r', v(`BC² = AB² + AC² − 2·AB·AC·cos ${t}° = ${num(BC * BC, 4)}`) + '<br>' + v(`r = BC / (2sin ${t}°) = ${num(r, 4)}`) + '<br>' + n('正弦定理：对边 / 对角正弦 = 2r'));
+    h += '<div class="link">↓ 球心在过外心 O₁、垂直底面的直线上</div>';
+    h += node(`② 球心到底面的距离 d = ${st.model === 'prism' ? 'h' : 'PA'}/2`, v(`d = ${num(c / 2, 4)}`) + '<br>' + n(st.model === 'prism' ? '上下底面外心连线的中点。' : '球心到 P、A 距离相等，在 PA 的中垂面上。'));
+    h += '<div class="link">↓</div>' + node('③ R² = r² + d²', v(`R² = ${num(r * r, 4)} + ${num(c * c / 4, 4)} = ${sq(r * r + c * c / 4)}`));
+  } else if (st.model === 'regpyr') {
+    const r = a / Math.SQRT2, R = (b * b + r * r) / (2 * b);
+    h += node('① 底面外接圆半径', v(`r = a/√2 = ${num(r, 4)}（正方形对角线的一半）`));
+    h += '<div class="link">↓ 球心 O 在高 PO₁ 上，设 OO₁ = |h − R|</div>';
+    h += node('② 列方程 (h − R)² + r² = R²', v(`R = (h² + r²)/(2h) = (${num(b * b)} + ${num(r * r)})/${num(2 * b)} = ${num(R, 4)}`) + '<br>' + n(b < r ? `h < r：R > h，球心在底面<b>下方</b>，d = R − h = ${num(R - b, 4)}` : `h ≥ r：球心在锥内（或底面上），d = h − R = ${num(b - R, 4)}`), b < r ? 'warn' : '');
+    if (ins.ok) h += node('③ 内切球（等体积法）', v(`V = ⅓·a²·h = ${num(ins.Vol, 4)}，S表 = ${num(ins.S, 4)}`) + '<br>' + v(`r内 = 3V / S表 = ${num(ins.r, 4)}`));
+  }
+  h += '<div class="link">↓</div>' + node('结果', v(`R = ${num(cs.R, 4)}，S球 = 4πR² = ${num(4 * R2, 4)}π，V球 = 4πR³/3 = ${num(4 * cs.R ** 3 / 3, 4)}π`) + '<br>' + n(`数值验证：球心到 ${Object.keys(g.V).map(dn).join('、')} 的距离都等于 ${num(cs.R, 4)}`), 'ok');
+  if (ins.ok && st.model !== 'regpyr' && st.model !== 'tetra') h += node('内切球（等体积法）', v(`r = 3V / S表 = 3 × ${num(ins.Vol, 4)} / ${num(ins.S, 4)} = ${num(ins.r, 4)}`));
+  $('chain').innerHTML = h;
+  $('inWrap').style.display = ins.ok ? '' : 'none';
+}
+
+function render() { draw(); panel(); }
+function syncUI() {
+  const labs = M().labels;
+  [1, 2, 3, 4].forEach(i => { $('r' + i).style.display = labs[i - 1] ? '' : 'none'; $('l' + i).textContent = labs[i - 1] || ''; Lab.setRange('s' + i, st.s[i - 1]); });
+  $('model').value = st.model;
+}
+$('model').innerHTML = Object.entries(MODELS).map(([k, m]) => `<option value="${k}">${m.name}</option>`).join('');
+$('model').addEventListener('change', () => { st.model = $('model').value; syncUI(); render(); });
+[1, 2, 3].forEach(i => Lab.range('s' + i, v => num(v), v => { st.s[i - 1] = v; render(); }));
+Lab.range('s4', v => `${v}°`, v => { st.s[3] = v; render(); });
+['showOut', 'showIn', 'showHull'].forEach(k => $(k).addEventListener('change', e => { st[k] = e.target.checked; draw(); }));
+
+function apply(model, s, o = {}) {
+  Object.assign(st, { model, s: [...s], zoom: 1, yaw: -0.6, pitch: 0.38, showIn: false }, o);
+  $('showIn').checked = st.showIn;
+  syncUI(); render();
+}
+Lab.presets('presets', [
+  ['长方体 1×2×3', () => apply('box', [1, 2, 3, 90])],
+  ['墙角：PA = PB = PC = 2', () => apply('corner', [2, 2, 2, 90])],
+  ['正四面体：R = 3r', () => apply('tetra', [2, 2, 2, 90], { showIn: true })],
+  ['正三棱柱：底边 2，高 2', () => apply('prism', [2, 2, 2, 60])],
+  ['PA ⊥ 底面，∠BAC = 120°', () => apply('pyrPA', [2, 2, 2, 120])],
+  ['直三棱柱 AB ⊥ AC', () => apply('prism', [2, 2, 2, 90])],
+  ['正四棱锥：底边 2，高 3', () => apply('regpyr', [2, 3, 2, 90], { showIn: true })],
+  ['正四棱锥：球心在锥外', () => apply('regpyr', [4, 1, 2, 90])],
+]);
+apply('box', [1, 2, 3, 90]);
+</script>
+</body>
+</html>

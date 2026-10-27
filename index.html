@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>高中数学图形化知识地图（人教 A 版 2019）</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Microsoft YaHei", "PingFang SC", sans-serif; color: #1f2937; background: #f5f6fa; }
+  a { color: #2563eb; text-decoration: none; }
+  header { position: sticky; top: 0; z-index: 5; background: #fff; border-bottom: 1px solid #e5e7eb; padding: 12px 24px; }
+  .hrow { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; max-width: 1400px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0; }
+  .sub { font-size: 12px; color: #6b7280; }
+  #q { flex: 1; min-width: 200px; max-width: 360px; font: inherit; font-size: 14px; padding: 7px 12px; border: 1px solid #d1d5db; border-radius: 8px; }
+  .chips { display: flex; gap: 6px; }
+  .chip { font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 999px; border: 1px solid #d1d5db; background: #fff; cursor: pointer; }
+  .chip.on { background: #1f2937; color: #fff; border-color: #1f2937; }
+  .prog { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #374151; }
+  .bar { width: 140px; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: #16a34a; width: 0; transition: width .3s; }
+  main { max-width: 1400px; margin: 0 auto; padding: 16px 24px 60px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: #4b5563; margin: 4px 0 14px; align-items: center; }
+  .legend span::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; background: var(--c); }
+  .legend em { font-style: normal; color: #92400e; margin-left: auto; }
+  .labs { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-bottom: 22px; }
+  .lab { display: flex; gap: 12px; align-items: center; background: linear-gradient(135deg, #eff6ff, #fff); border: 1px solid #bfdbfe; border-radius: 12px; padding: 12px 14px; color: inherit; }
+  .lab:hover { border-color: #2563eb; box-shadow: 0 4px 14px rgba(37,99,235,.12); }
+  .lab .ic { width: 42px; height: 42px; border-radius: 10px; background: var(--c, #2563eb); color: #fff; display: grid; place-items: center; font-size: 20px; flex-shrink: 0; font-family: "Cambria Math", "Times New Roman", serif; }
+  .lab b { display: block; font-size: 15px; }
+  .lab small { color: #6b7280; font-size: 12px; }
+  .book { margin: 22px 0 10px; display: flex; align-items: baseline; gap: 10px; }
+  .book h2 { font-size: 17px; margin: 0; }
+  .book .cnt { font-size: 12px; color: #6b7280; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+  .card { background: #fff; border-radius: 12px; border: 1px solid #e5e7eb; overflow: hidden; cursor: pointer; display: flex; flex-direction: column; transition: transform .15s, box-shadow .15s; border-top: 4px solid var(--c); }
+  .card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,.08); }
+  .card svg { width: 100%; height: auto; display: block; background: #fcfcfd; border-bottom: 1px solid #f3f4f6; }
+  .card .body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  .card .ttl { font-size: 15px; font-weight: bold; }
+  .card .ttl small { font-weight: normal; color: #6b7280; font-size: 12px; margin-right: 4px; }
+  .card .meta { display: flex; gap: 6px; flex-wrap: wrap; }
+  .badge { font-size: 11px; border-radius: 4px; padding: 1px 6px; background: #f3f4f6; color: #4b5563; }
+  .badge.lab { background: #dbeafe; color: #1d4ed8; }
+  .badge.hot { background: #fee2e2; color: #b91c1c; }
+  .badge.hit { background: #fef3c7; color: #92400e; }
+  .mini { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #6b7280; margin-top: auto; }
+  .mini .bar { width: auto; flex: 1; height: 5px; }
+  .empty { color: #6b7280; padding: 40px; text-align: center; }
+
+  #modal { position: fixed; inset: 0; background: rgba(17,24,39,.45); display: none; z-index: 10; padding: 30px 16px; overflow-y: auto; }
+  #modal.open { display: block; }
+  .sheet { max-width: 920px; margin: 0 auto; background: #fff; border-radius: 14px; overflow: hidden; border-top: 6px solid var(--c); }
+  .shead { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid #f3f4f6; }
+  .shead h3 { margin: 0; font-size: 19px; }
+  .shead .x { font-size: 22px; border: none; background: none; cursor: pointer; color: #6b7280; }
+  .sbody { display: grid; grid-template-columns: 360px 1fr; gap: 20px; padding: 18px 20px 22px; }
+  .sbody .fig svg { width: 100%; background: #fcfcfd; border: 1px solid #f3f4f6; border-radius: 10px; }
+  .box { border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.7; margin-top: 12px; }
+  .box h4 { margin: 0 0 4px; font-size: 13px; }
+  .box.exam { background: #fef2f2; border: 1px solid #fecaca; }
+  .box.warn { background: #fff7ed; border: 1px solid #fed7aa; }
+  .box.go { background: #eff6ff; border: 1px solid #bfdbfe; }
+  .box.go a { display: block; padding: 3px 0; }
+  .box ul { margin: 0; padding-left: 18px; }
+  .sec { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
+  .sec:last-child { border-bottom: none; }
+  .sec input { margin-top: 4px; width: 16px; height: 16px; accent-color: #16a34a; flex-shrink: 0; cursor: pointer; }
+  .sec .st { font-weight: bold; font-size: 14px; }
+  .sec .sp { font-size: 13px; color: #374151; line-height: 1.7; margin-top: 2px; }
+  .sec .sf { display: inline-block; margin-top: 4px; font-size: 13px; background: #f5f3ff; color: #5b21b6; border-radius: 6px; padding: 2px 8px; font-family: "Cambria Math", "Times New Roman", serif; }
+  .sec.done .st { color: #15803d; }
+  .sec.match { background: #fffbeb; }
+  .hint { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+  @media (max-width: 760px) { .sbody { grid-template-columns: 1fr; } header { padding: 10px 14px; } main { padding: 12px 14px 40px; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="hrow">
+    <div>
+      <h1>高中数学图形化知识地图</h1>
+      <div class="sub">按人教 A 版 2019 教材章节整理，围绕高考考点 · 点开卡片看每节要点和高考考法，勾选「已掌握」记录进度</div>
+    </div>
+    <input id="q" type="search" placeholder="搜索知识点或公式，如：韦达、法向量、Sₙ">
+    <div class="chips">
+      <button class="chip on" data-f="all">全部</button>
+      <button class="chip" data-f="hot">高考重点</button>
+      <button class="chip" data-f="lab">有交互实验</button>
+    </div>
+    <div class="prog">已掌握 <div class="bar"><i id="pbar"></i></div><span id="ptext"></span></div>
+  </div>
+</header>
+
+<main>
+  <div class="legend" id="legend"></div>
+  <div class="labs" id="labs"></div>
+  <div id="books"></div>
+</main>
+
+<div id="modal"><div class="sheet" id="sheet"></div></div>
+
+<script src="assets/curriculum.js"></script>
+<script src="assets/figures.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const KEY = 'math-map-progress-v1';
+let done = {};
+try { done = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { done = {}; }
+const save = () => localStorage.setItem(KEY, JSON.stringify(done));
+
+let filter = 'all', query = '';
+const allChapters = CURRICULUM.flatMap(b => b.chapters.map(c => ({ ...c, book: b })));
+const totalSections = allChapters.reduce((n, c) => n + c.sections.length, 0);
+
+const norm = s => s.toLowerCase().replace(/\s+/g, '');
+function matches(ch) {
+  if (!query) return { ok: true, hits: [] };
+  const q = norm(query);
+  const hits = ch.sections.map((s, i) => norm(s.join(' ')).includes(q) ? i : -1).filter(i => i >= 0);
+  const ok = hits.length > 0 || norm(ch.title).includes(q) || norm(ch.exam || '').includes(q) || (ch.pitfalls || []).some(p => norm(p).includes(q));
+  return { ok, hits };
+}
+
+function chapterDone(ch) { return ch.sections.filter((_, i) => done[`${ch.id}-${i}`]).length; }
+
+function renderProgress() {
+  const n = allChapters.reduce((s, c) => s + chapterDone(c), 0);
+  $('pbar').style.width = `${n / totalSections * 100}%`;
+  $('ptext').textContent = `${n} / ${totalSections} 节`;
+}
+
+function renderLegend() {
+  $('legend').innerHTML = Object.values(DOMAINS).map(d => `<span style="--c:${d.color}">${d.name}</span>`).join('') + `<em>${HOT_NOTE}</em>`;
+}
+
+function renderLabs() {
+  const owner = {};
+  for (const c of allChapters) for (const l of c.labs || []) owner[l] = owner[l] || c;
+  const order = id => (owner[id] ? allChapters.indexOf(owner[id]) : 999);
+  $('labs').innerHTML = Object.entries(LABS).sort((a, b) => order(a[0]) - order(b[0])).map(([id, l]) => `
+    <a class="lab" href="labs/${id}.html" style="--c:${owner[id] ? DOMAINS[owner[id].domain].color : '#2563eb'}">
+      <div class="ic">${l.icon}</div>
+      <div><b>${l.name}</b><small>${l.desc}</small><br><small>${owner[id] ? `${owner[id].book.name} · ${owner[id].num} ${owner[id].title}` : ''}</small></div>
+    </a>`).join('');
+}
+
+function renderBooks() {
+  let html = '';
+  for (const b of CURRICULUM) {
+    const cards = [];
+    for (const c of b.chapters) {
+      if (filter === 'hot' && !c.hot) continue;
+      if (filter === 'lab' && !(c.labs && c.labs.length)) continue;
+      const m = matches(c);
+      if (!m.ok) continue;
+      const d = chapterDone(c), n = c.sections.length;
+      cards.push(`
+        <div class="card" style="--c:${DOMAINS[c.domain].color}" data-id="${c.id}">
+          ${figureSVG(c.fig)}
+          <div class="body">
+            <div class="ttl"><small>${c.num}</small>${c.title}</div>
+            <div class="meta">
+              <span class="badge">${DOMAINS[c.domain].name}</span>
+              ${c.hot ? '<span class="badge hot">高考重点</span>' : ''}
+              ${c.labs && c.labs.length ? `<span class="badge lab">交互实验 ${c.labs.length}</span>` : ''}
+              ${query && m.hits.length ? `<span class="badge hit">命中 ${m.hits.length} 节</span>` : ''}
+            </div>
+            <div class="mini"><div class="bar"><i style="width:${d / n * 100}%"></i></div>${d}/${n} 节</div>
+          </div>
+        </div>`);
+    }
+    if (!cards.length) continue;
+    html += `<div class="book"><h2>${b.name}</h2><span class="cnt">${cards.length} 章</span></div><div class="grid">${cards.join('')}</div>`;
+  }
+  $('books').innerHTML = html || '<div class="empty">没有找到匹配的知识点，换个关键词试试。</div>';
+  document.querySelectorAll('.card').forEach(el => el.addEventListener('click', () => openChapter(el.dataset.id)));
+}
+
+function openChapter(id) {
+  const c = allChapters.find(x => x.id === id);
+  const hits = new Set(matches(c).hits);
+  const labs = (c.labs || []).map(l => `<a href="labs/${l}.html">⚡ ${LABS[l].name}</a>`).join('');
+  $('sheet').style.setProperty('--c', DOMAINS[c.domain].color);
+  $('sheet').innerHTML = `
+    <div class="shead">
+      <h3><span style="color:#6b7280;font-weight:normal;font-size:14px">${c.book.name} · ${c.num}</span>　${c.title}</h3>
+      <button class="x" id="close" aria-label="关闭">×</button>
+    </div>
+    <div class="sbody">
+      <div>
+        <div class="fig">${figureSVG(c.fig)}</div>
+        ${c.exam ? `<div class="box exam"><h4>🎯 高考怎么考</h4>${c.exam}</div>` : ''}
+        ${c.pitfalls && c.pitfalls.length ? `<div class="box warn"><h4>⚠ 易错点</h4><ul>${c.pitfalls.map(p => `<li>${p}</li>`).join('')}</ul></div>` : ''}
+        ${labs ? `<div class="box go"><h4>动手试试</h4>${labs}</div>` : ''}
+      </div>
+      <div>
+        <div class="hint">勾选表示这一节已经掌握，进度保存在本机浏览器里。</div>
+        ${c.sections.map(([st, sp, sf], i) => `
+          <label class="sec ${done[`${c.id}-${i}`] ? 'done' : ''} ${hits.has(i) ? 'match' : ''}">
+            <input type="checkbox" data-k="${c.id}-${i}" ${done[`${c.id}-${i}`] ? 'checked' : ''}>
+            <div><div class="st">${i + 1}. ${st}</div><div class="sp">${sp}</div>${sf ? `<span class="sf">${sf}</span>` : ''}</div>
+          </label>`).join('')}
+      </div>
+    </div>`;
+  $('modal').classList.add('open');
+  $('close').addEventListener('click', closeModal);
+  $('sheet').querySelectorAll('input[data-k]').forEach(el => el.addEventListener('change', () => {
+    if (el.checked) done[el.dataset.k] = true; else delete done[el.dataset.k];
+    el.closest('.sec').classList.toggle('done', el.checked);
+    save();
+    renderProgress();
+  }));
+}
+
+function closeModal() { $('modal').classList.remove('open'); renderBooks(); }
+$('modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+window.addEventListener('keydown', e => { if (e.key === 'Escape' && $('modal').classList.contains('open')) closeModal(); });
+
+document.querySelectorAll('.chip').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.chip').forEach(x => x.classList.toggle('on', x === b));
+  filter = b.dataset.f;
+  renderBooks();
+}));
+$('q').addEventListener('input', e => { query = e.target.value.trim(); renderBooks(); });
+
+renderLegend();
+renderLabs();
+renderBooks();
+renderProgress();
+</script>
+</body>
+</html>

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>平面向量 · 交互实验</title>
+<link rel="stylesheet" href="../assets/lab.css">
+</head>
+<body>
+<div id="top"><a href="../index.html">← 知识地图</a><b>平面向量</b><span class="crumb">必修第二册 · 第六章 平面向量及其应用</span></div>
+<div id="app">
+  <div id="left">
+    <div class="stage"><canvas id="cv"></canvas><div class="hint" id="hint"></div></div>
+  </div>
+  <aside id="panel">
+    <div class="tip" id="tip"></div>
+
+    <h2>模式</h2>
+    <div class="seg" id="mode"><button data-v="ops" class="on">运算与投影</button><button data-v="basis">基本定理</button><button data-v="polar">极化恒等式</button></div>
+    <div id="opts" class="row"></div>
+
+    <h2>高考题型</h2>
+    <div class="grid" id="presets"></div>
+
+    <h2>分析（数值随拖动实时更新）</h2>
+    <div class="chain" id="chain"></div>
+
+    <h2>常用结论</h2>
+    <details open>
+      <summary>拖一拖，验证这些结论</summary>
+      <ul>
+        <li>a ⊥ b ⇔ a·b = 0 ⇔ x₁x₂ + y₁y₂ = 0；a ∥ b ⇔ x₁y₂ − x₂y₁ = 0。</li>
+        <li>a 在 b 上的投影向量 = (a·b/|b|²)·b；数量积 = |b| × (a 在 b 方向上的投影数量)。</li>
+        <li>|a + b|² + |a − b|² = 2(|a|² + |b|²)：平行四边形两条对角线的平方和等于四边平方和。</li>
+        <li>OP = λOA + μOB 且 P 在直线 AB 上 ⇔ λ + μ = 1；P 在与 AB 平行的直线上时 λ + μ 为定值（等和线）。</li>
+        <li>极化恒等式：PA·PB = |PM|² − ¼|AB|²（M 是 AB 中点），把数量积最值化成距离最值。</li>
+      </ul>
+    </details>
+  </aside>
+</div>
+
+<script src="../assets/lab.js"></script>
+<script src="../assets/plane.js"></script>
+<script>
+const { $, fmt, num } = Lab;
+const st = {
+  mode: 'ops',
+  a: [4, 1], b: [1.5, 3], p: [3.5, 3],
+  A: [-3, 0], B: [3, 0], Q: [1, 3], lineY: 2, onLine: false,
+  showSum: true, showDiff: true, showProj: true,
+};
+const dot2 = (u, v) => u[0] * v[0] + u[1] * v[1];
+const len = u => Math.hypot(u[0], u[1]);
+const sub = (u, v) => [u[0] - v[0], u[1] - v[1]];
+const add = (u, v) => [u[0] + v[0], u[1] + v[1]];
+const mul = (k, u) => [k * u[0], k * u[1]];
+const vs = u => `(${num(u[0], 2)}, ${num(u[1], 2)})`;
+const snap = v => Math.round(v * 2) / 2;
+const C = { a: '#2563eb', b: '#ea580c', s: '#0d9488', d: '#7c3aed', p: '#16a34a', P: '#dc2626' };
+
+const P = Plane.plane($('cv'), {
+  xmin: -6, xmax: 7, ymin: -3, ymax: 6,
+  draw,
+  pick(px, py, r) {
+    const keys = st.mode === 'polar' ? ['A', 'B', 'Q'] : st.mode === 'basis' ? ['p', 'a', 'b'] : ['a', 'b'];
+    return keys.find(k => P.near(px, py, ...st[k], r)) || null;
+  },
+  move(k, x, y) {
+    st[k] = [snap(x), snap(y)];
+    if (k === 'Q' && st.onLine) st.Q[1] = st.lineY;
+    render();
+  },
+});
+
+function draw(P) {
+  P.grid();
+  if (st.mode === 'ops') drawOps(P);
+  else if (st.mode === 'basis') drawBasis(P);
+  else drawPolar(P);
+}
+
+function drawOps(P) {
+  const { a, b } = st, s = add(a, b);
+  if (st.showSum) {
+    P.seg(a[0], a[1], s[0], s[1], C.b, 1.2, [5, 4]);
+    P.seg(b[0], b[1], s[0], s[1], C.a, 1.2, [5, 4]);
+    P.arrow(0, 0, s[0], s[1], C.s, 2.6);
+    P.label('a + b', s[0], s[1], C.s, { dx: 12, dy: -10, bold: true, align: 'left' });
+  }
+  if (st.showDiff) {
+    P.arrow(b[0], b[1], a[0], a[1], C.d, 2.4);
+    P.label('a − b', (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, C.d, { dx: 10, dy: 10, bold: true, align: 'left' });
+  }
+  if (st.showProj && len(b) > 1e-9) {
+    const pr = mul(dot2(a, b) / dot2(b, b), b);
+    P.line(0, 0, b[0], b[1], '#e5e7eb', 1);
+    P.seg(a[0], a[1], pr[0], pr[1], C.p, 1.3, [4, 4]);
+    P.arrow(0, 0, pr[0], pr[1], C.p, 4, 10);
+    P.label('投影向量', pr[0], pr[1], C.p, { dx: 8, dy: 14, bold: true, size: 12, align: 'left' });
+  }
+  const ta = Math.atan2(a[1], a[0]), tb = Math.atan2(b[1], b[0]);
+  let lo = Math.min(ta, tb), hi = Math.max(ta, tb);
+  if (hi - lo > Math.PI) [lo, hi] = [hi, lo + 2 * Math.PI];
+  P.angle(0, 0, lo, hi, 30, '#6b7280', `θ = ${num(angleDeg(a, b), 1)}°`);
+  P.arrow(0, 0, a[0], a[1], C.a, 3);
+  P.arrow(0, 0, b[0], b[1], C.b, 3);
+  P.pt(a[0], a[1], C.a, `a ${vs(a)}`, { r: 6 });
+  P.pt(b[0], b[1], C.b, `b ${vs(b)}`, { r: 6 });
+}
+const angleDeg = (u, v) => (len(u) && len(v) ? Math.acos(Math.max(-1, Math.min(1, dot2(u, v) / len(u) / len(v)))) * 180 / Math.PI : NaN);
+
+function decompose() {
+  const { a, b, p } = st, det = a[0] * b[1] - a[1] * b[0];
+  if (Math.abs(det) < 1e-9) return null;
+  return { l: (p[0] * b[1] - p[1] * b[0]) / det, m: (a[0] * p[1] - a[1] * p[0]) / det };
+}
+
+function drawBasis(P) {
+  const { a, b, p } = st, d = decompose();
+  if (d) {
+    for (let k = -8; k <= 8; k++) {
+      P.line(k * a[0], k * a[1], b[0], b[1], 'rgba(37,99,235,.10)', 1);
+      P.line(k * b[0], k * b[1], a[0], a[1], 'rgba(234,88,12,.10)', 1);
+    }
+    // 直线 AB（λ + μ = 1）与过 P 的等和线（λ + μ = k）
+    const ab = sub(b, a);
+    P.line(a[0], a[1], ab[0], ab[1], '#111827', 1.6);
+    const k = d.l + d.m;
+    P.line(p[0], p[1], ab[0], ab[1], '#dc2626', 1.4, [7, 5]);
+    P.label(`λ + μ = ${num(k, 2)}`, p[0] + ab[0] * 0.6, p[1] + ab[1] * 0.6, '#dc2626', { dy: -12, bold: true, size: 12 });
+    const la = mul(d.l, a), mb = mul(d.m, b);
+    P.seg(la[0], la[1], p[0], p[1], C.b, 1.3, [5, 4]);
+    P.seg(mb[0], mb[1], p[0], p[1], C.a, 1.3, [5, 4]);
+    P.arrow(0, 0, la[0], la[1], 'rgba(37,99,235,.55)', 5, 11);
+    P.arrow(0, 0, mb[0], mb[1], 'rgba(234,88,12,.55)', 5, 11);
+    P.label(`λa`, la[0], la[1], C.a, { dy: 16, bold: true });
+    P.label(`μb`, mb[0], mb[1], C.b, { dx: -16, bold: true });
+  }
+  P.arrow(0, 0, a[0], a[1], C.a, 3);
+  P.arrow(0, 0, b[0], b[1], C.b, 3);
+  P.arrow(0, 0, p[0], p[1], C.P, 2.8);
+  P.pt(a[0], a[1], C.a, 'A（a）', { r: 6 });
+  P.pt(b[0], b[1], C.b, 'B（b）', { r: 6 });
+  P.pt(p[0], p[1], C.P, 'P', { r: 7 });
+}
+
+function drawPolar(P) {
+  const { A, B, Q } = st, M = mul(0.5, add(A, B)), r = len(sub(B, A)) / 2;
+  P.circle(M[0], M[1], r, '#a855f7', 1.4, [6, 5], 'rgba(168,85,247,.06)');
+  P.label('圆内 PA·PB < 0，圆上 = 0，圆外 > 0', M[0], M[1] - r, '#a855f7', { dy: 16, size: 12 });
+  if (st.onLine) {
+    P.line(0, st.lineY, 1, 0, '#9ca3af', 1.6);
+    P.seg(M[0], M[1], M[0], st.lineY, '#16a34a', 1.3, [4, 4]);
+    P.pt(M[0], st.lineY, '#16a34a', '最小值处', { r: 3.5, size: 11, dy: 16 });
+  }
+  P.seg(A[0], A[1], B[0], B[1], '#111827', 1.8);
+  P.arrow(Q[0], Q[1], A[0], A[1], C.a, 2.6);
+  P.arrow(Q[0], Q[1], B[0], B[1], C.b, 2.6);
+  P.seg(Q[0], Q[1], M[0], M[1], C.s, 2.2, [6, 4]);
+  P.pt(M[0], M[1], C.s, 'M', { r: 4.5 });
+  P.pt(A[0], A[1], C.a, 'A', { r: 6 });
+  P.pt(B[0], B[1], C.b, 'B', { r: 6 });
+  P.pt(Q[0], Q[1], C.P, 'P', { r: 7 });
+}
+
+function updatePanel() {
+  let h = '';
+  if (st.mode === 'ops') {
+    const { a, b } = st, d = dot2(a, b), th = angleDeg(a, b);
+    h += `<div class="node"><span class="f">数量积（坐标）</span><br><span class="v">a·b = ${num(a[0])}×${num(b[0])} + ${num(a[1])}×${num(b[1])} = ${num(d, 3)}</span></div>`;
+    h += `<div class="link">↓</div><div class="node"><span class="f">夹角</span><br><span class="v">cos θ = a·b / (|a||b|) = ${num(d, 2)} / (${num(len(a), 3)} × ${num(len(b), 3)}) = ${num(d / len(a) / len(b), 4)}</span><br><span class="v">θ = ${num(th, 2)}°</span></div>`;
+    if (len(b) > 1e-9) {
+      const pr = mul(d / dot2(b, b), b);
+      h += `<div class="link">↓</div><div class="node"><span class="f">a 在 b 上的投影向量</span><br><span class="v">(a·b/|b|²)·b = (${num(d, 2)}/${num(dot2(b, b), 2)})·b = ${vs(pr)}</span><br><span class="n">投影数量 |a|cos θ = ${num(d / len(b), 3)}${d < 0 ? '（负数：投影向量与 b 反向）' : ''}</span></div>`;
+    }
+    h += `<div class="node"><span class="v">|a + b| = ${num(len(add(a, b)), 3)}，|a − b| = ${num(len(sub(a, b)), 3)}</span><br><span class="n">|a + b|² + |a − b|² = ${num(dot2(add(a, b), add(a, b)) + dot2(sub(a, b), sub(a, b)), 2)} = 2(|a|² + |b|²) = ${num(2 * (dot2(a, a) + dot2(b, b)), 2)}</span></div>`;
+    const cross = a[0] * b[1] - a[1] * b[0];
+    if (Math.abs(d) < 1e-9) h += `<div class="node ok"><span class="f">a ⊥ b</span>：a·b = 0</div>`;
+    if (Math.abs(cross) < 1e-9) h += `<div class="node ok"><span class="f">a ∥ b</span>：x₁y₂ − x₂y₁ = 0${d < 0 ? '（反向）' : ''}</div>`;
+    if (d < 0 && Math.abs(cross) > 1e-9) h += `<div class="node warn"><span class="n">a·b < 0 且不共线 ⇒ 夹角为钝角。若题目问"夹角为钝角"，要排除反向共线的情况。</span></div>`;
+  } else if (st.mode === 'basis') {
+    const d = decompose();
+    if (!d) h += `<div class="node warn"><span class="f">a 与 b 共线，不能作为基底</span></div>`;
+    else {
+      const k = d.l + d.m;
+      h += `<div class="node"><span class="f">OP = λa + μb</span><br><span class="v">${vs(st.p)} = λ${vs(st.a)} + μ${vs(st.b)}</span><br><span class="v">λ = ${num(d.l, 3)}，μ = ${num(d.m, 3)}</span></div>`;
+      h += `<div class="link">↓</div><div class="node ${Math.abs(k - 1) < 1e-6 ? 'ok' : ''}"><span class="f">λ + μ = ${num(k, 3)}</span><br><span class="n">${Math.abs(k - 1) < 1e-6 ? 'P 在直线 AB 上：A、B、P 三点共线 ⇔ λ + μ = 1' : `红色虚线（过 P 且平行于 AB）上所有点的 λ + μ 都等于 ${num(k, 3)}；离 O 越远，|λ + μ| 越大。`}</span></div>`;
+      h += `<div class="node"><span class="n">等和线的比例：λ + μ = (O 到等和线的距离)/(O 到直线 AB 的距离)，同侧为正、异侧为负。</span></div>`;
+    }
+  } else {
+    const { A, B, Q } = st, M = mul(0.5, add(A, B)), PA = sub(A, Q), PB = sub(B, Q), PM = sub(M, Q), AB = sub(B, A);
+    h += `<div class="node"><span class="f">直接算</span><br><span class="v">PA·PB = ${vs(PA)}·${vs(PB)} = ${num(dot2(PA, PB), 3)}</span></div>`;
+    h += `<div class="link">↓ PA = PM + MA，PB = PM − MA</div><div class="node"><span class="f">极化恒等式</span><br><span class="v">|PM|² − ¼|AB|² = ${num(dot2(PM, PM), 3)} − ${num(dot2(AB, AB) / 4, 3)} = ${num(dot2(PM, PM) - dot2(AB, AB) / 4, 3)}</span></div>`;
+    if (st.onLine) {
+      const dm = Math.abs(st.lineY - M[1]);
+      h += `<div class="link">↓ P 在直线 y = ${num(st.lineY)} 上</div><div class="node ok"><span class="f">|PM| 最小 = M 到直线的距离 ${num(dm, 3)}</span><br><span class="v">PA·PB 的最小值 = ${num(dm * dm, 3)} − ${num(dot2(AB, AB) / 4, 3)} = ${num(dm * dm - dot2(AB, AB) / 4, 3)}</span></div>`;
+    }
+  }
+  $('chain').innerHTML = h;
+  const tips = {
+    ops: '拖动 a、b 的端点。<b>数量积 a·b = |a||b|cos θ = x₁x₂ + y₁y₂</b>，几何意义是 |b| 乘以 a 在 b 方向上的投影。',
+    basis: '拖动 A、B（基底 a、b）和 P。<b>平面向量基本定理</b>：a、b 不共线时，任一向量都能唯一写成 λa + μb。',
+    polar: '拖动 A、B、P。<b>PA·PB = |PM|² − ¼|AB|²</b>，AB 固定时数量积只取决于 P 到中点 M 的距离。',
+  };
+  $('tip').innerHTML = tips[st.mode];
+  $('hint').textContent = '拖动彩色端点（吸附到 0.5 格）；空白处拖动移动视野，滚轮缩放';
+}
+
+function renderOpts() {
+  const o = {
+    ops: `<label class="chk"><input type="checkbox" data-k="showSum" ${st.showSum ? 'checked' : ''}>a + b</label><label class="chk"><input type="checkbox" data-k="showDiff" ${st.showDiff ? 'checked' : ''}>a − b</label><label class="chk"><input type="checkbox" data-k="showProj" ${st.showProj ? 'checked' : ''}>投影向量</label>`,
+    basis: '',
+    polar: `<label class="chk"><input type="checkbox" data-k="onLine" ${st.onLine ? 'checked' : ''}>P 限制在直线 y = ${num(st.lineY)} 上</label>`,
+  }[st.mode];
+  $('opts').innerHTML = o;
+  $('opts').querySelectorAll('input').forEach(el => el.addEventListener('change', () => {
+    st[el.dataset.k] = el.checked;
+    if (el.dataset.k === 'onLine' && el.checked) st.Q[1] = st.lineY;
+    render();
+  }));
+}
+
+function render() { P.redraw(); updatePanel(); }
+const setMode = Lab.seg('mode', v => switchMode(v));
+function switchMode(v) { st.mode = v; setMode(v); renderOpts(); render(); }
+Lab.presets('presets', [
+  ['垂直：a·b = 0', () => { Object.assign(st, { a: [3, 1], b: [-1, 3] }); switchMode('ops'); }],
+  ['钝角：a·b < 0', () => { Object.assign(st, { a: [4, 1], b: [-2, 2] }); switchMode('ops'); }],
+  ['反向共线：a·b < 0 但不是钝角', () => { Object.assign(st, { a: [4, 2], b: [-2, -1] }); switchMode('ops'); }],
+  ['三点共线：λ + μ = 1', () => { Object.assign(st, { a: [4, 0], b: [0, 3], p: [2, 1.5] }); switchMode('basis'); }],
+  ['等和线求 λ + μ 最大', () => { Object.assign(st, { a: [3, 0], b: [1, 2.5], p: [3, 3] }); switchMode('basis'); }],
+  ['极化恒等式求最小值', () => { Object.assign(st, { A: [-3, 0], B: [3, 0], Q: [2, 2], onLine: true, lineY: 2 }); switchMode('polar'); }],
+]);
+switchMode('ops');
+</script>
+</body>
+</html>

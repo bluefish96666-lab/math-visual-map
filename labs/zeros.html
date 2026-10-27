@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>零点个数与分离参数 · 交互实验</title>
+<link rel="stylesheet" href="../assets/lab.css">
+</head>
+<body>
+<div id="top"><a href="../index.html">← 知识地图</a><b>零点个数与分离参数</b><span class="crumb">选择性必修第二册 · 第五章 一元函数的导数及其应用</span></div>
+<div id="app">
+  <div id="left">
+    <div class="stage"><canvas id="cv"></canvas><div class="hint">上下拖动橙色水平线 y = a（靠近关键值会自动吸附）；空白处拖动移动视野，滚轮缩放</div></div>
+    <div class="chartWrap"><canvas id="chart"></canvas></div>
+  </div>
+  <aside id="panel">
+    <div class="tip">"方程 f(x) = 0 有几个根"或"f(x) 有几个零点"，若能把参数 a 单独移到一边写成 <b>a = g(x)</b>，就变成<b>水平线 y = a 与曲线 y = g(x) 有几个交点</b>。画 g(x) 的图像只需要两样东西：<b>极值</b>和<b>定义域端点处的极限</b>。下图是原方程两边各自的图像，交点个数相同。</div>
+
+    <h2>题目</h2>
+    <div class="row"><select id="fn"></select></div>
+    <div class="row">a <input type="range" id="a" min="-3" max="5" step="0.01" value="0.2"><span class="val" id="av"></span></div>
+
+    <h2>高考题型</h2>
+    <div class="grid" id="presets"></div>
+
+    <h2>分析</h2>
+    <div class="chain" id="chain"></div>
+
+    <h2>常用结论</h2>
+    <details open>
+      <summary>拖一拖，验证这些结论</summary>
+      <ul>
+        <li>分离参数前要确认变形是等价的：两边同除以 x 时要单独检验 x = 0 是不是根。</li>
+        <li>"有两个零点"的答案常是开区间，端点对应"相切"（一个根）或"取不到的极限值"。</li>
+        <li>常见图像：xeˣ 最小值 −1/e；ln x / x 最大值 1/e；eˣ/x 在 x > 0 的最小值 e；x ln x 最小值 −1/e。</li>
+        <li>极限的写法：x → 0⁺ 时 x ln x → 0，x → +∞ 时 ln x / x → 0、x²/eˣ → 0（指数增长快于幂函数，幂函数快于对数）。</li>
+        <li>不能分离参数（或分离后的函数太复杂）时，改为直接讨论原函数的单调性和极值。</li>
+      </ul>
+    </details>
+  </aside>
+</div>
+
+<script src="../assets/lab.js"></script>
+<script src="../assets/plane.js"></script>
+<script>
+const { $, fmt, num } = Lab;
+const E = Math.E, I = Infinity;
+// pieces：定义域的各个区间 [L, R]、端点极限、区间内的极值点
+const FN = {
+  xex: {
+    name: 'xeˣ − a = 0 的根的个数', g: x => x * Math.exp(x), gs: 'xeˣ', dg: '(x + 1)eˣ',
+    sep: '方程本身就是 a = xeˣ',
+    pieces: [{ L: -I, R: I, limL: 0, limR: I, crits: [-1] }],
+    limText: 'x → −∞ 时 xeˣ → 0⁻（从下方趋近 0，取不到）；x → +∞ 时 → +∞',
+    win: [-6, 2.5, -1.2, 2.5],
+  },
+  lnxx: {
+    name: 'ln x = ax 的根的个数', g: x => (x > 0 ? Math.log(x) / x : NaN), gs: 'ln x / x', dg: '(1 − ln x)/x²',
+    sep: 'x > 0，两边同除以 x：a = ln x / x',
+    pieces: [{ L: 0, R: I, limL: -I, limR: 0, crits: [E] }],
+    limText: 'x → 0⁺ 时 → −∞；x → +∞ 时 → 0⁺（从上方趋近 0）',
+    orig: { f1: x => (x > 0 ? Math.log(x) : NaN), f2: (x, a) => a * x, t1: 'y = ln x', t2: 'y = ax（过原点的直线）', win: [-1, 16, -3, 4] },
+    win: [-0.5, 16, -1.2, 0.8],
+  },
+  exx: {
+    name: 'eˣ = ax 的根的个数', g: x => Math.exp(x) / x, gs: 'eˣ / x', dg: 'eˣ(x − 1)/x²',
+    sep: 'x = 0 不是根（e⁰ = 1 ≠ 0），所以 a = eˣ / x（x ≠ 0）',
+    pieces: [{ L: -I, R: 0, limL: 0, limR: -I, crits: [] }, { L: 0, R: I, limL: I, limR: I, crits: [1] }],
+    limText: 'x → −∞ 时 → 0⁻；x → 0⁻ 时 → −∞；x → 0⁺ 时 → +∞；x → +∞ 时 → +∞',
+    orig: { f1: x => Math.exp(x), f2: (x, a) => a * x, t1: 'y = eˣ', t2: 'y = ax（过原点的直线）', win: [-4, 4, -3, 8] },
+    win: [-5, 5, -6, 8],
+  },
+  xlnx: {
+    name: 'x ln x = a 的根的个数', g: x => (x > 0 ? x * Math.log(x) : NaN), gs: 'x ln x', dg: 'ln x + 1',
+    sep: '方程本身就是 a = x ln x（x > 0）',
+    pieces: [{ L: 0, R: I, limL: 0, limR: I, crits: [1 / E] }],
+    limText: 'x → 0⁺ 时 x ln x → 0⁻（取不到）；x → +∞ 时 → +∞',
+    win: [-0.5, 3, -0.8, 1.5],
+  },
+  x2ex: {
+    name: 'x² = aeˣ 的根的个数', g: x => x * x * Math.exp(-x), gs: 'x² / eˣ', dg: 'x(2 − x)/eˣ',
+    sep: 'eˣ > 0，两边同除以 eˣ：a = x² / eˣ',
+    pieces: [{ L: -I, R: I, limL: I, limR: 0, crits: [0, 2] }],
+    limText: 'x → −∞ 时 → +∞；x → +∞ 时 → 0⁺（指数增长快于幂函数）',
+    orig: { f1: x => x * x, f2: (x, a) => a * Math.exp(x), t1: 'y = x²', t2: 'y = aeˣ', win: [-4, 4, -2, 8] },
+    win: [-2.5, 9, -0.6, 1.6],
+  },
+  cubic: {
+    name: 'x³ − 3x − a = 0 的根的个数', g: x => x ** 3 - 3 * x, gs: 'x³ − 3x', dg: '3x² − 3',
+    sep: '方程本身就是 a = x³ − 3x',
+    pieces: [{ L: -I, R: I, limL: -I, limR: I, crits: [-1, 1] }],
+    limText: 'x → −∞ 时 → −∞；x → +∞ 时 → +∞',
+    win: [-3, 3, -4, 4],
+  },
+};
+const st = { fn: 'lnxx', a: 0.2 };
+const F = () => FN[st.fn];
+
+Object.entries(FN).forEach(([id, d]) => { const o = document.createElement('option'); o.value = id; o.textContent = d.name; $('fn').appendChild(o); });
+
+// 交点个数：每个单调段上 a 严格介于两端值之间记 1 个；a 恰好等于极值再记 1 个
+function count(a) {
+  const { g, pieces } = F();
+  let n = 0;
+  for (const p of pieces) {
+    const xs = [p.L, ...p.crits, p.R], vs = [p.limL, ...p.crits.map(g), p.limR];
+    for (let i = 0; i < xs.length - 1; i++) if (a > Math.min(vs[i], vs[i + 1]) + 1e-12 && a < Math.max(vs[i], vs[i + 1]) - 1e-12) n++;
+    p.crits.forEach(c => { if (Math.abs(g(c) - a) < 1e-9) n++; });
+  }
+  return n;
+}
+function keyValues() {
+  const { g, pieces } = F(), ks = [];
+  pieces.forEach(p => { [p.limL, p.limR, ...p.crits.map(g)].forEach(v => { if (Number.isFinite(v) && !ks.some(k => Math.abs(k - v) < 1e-9)) ks.push(v); }); });
+  return ks.sort((x, y) => x - y);
+}
+const kname = v => {
+  const m = [[1 / E, '1/e'], [-1 / E, '−1/e'], [E, 'e'], [4 / E ** 2, '4/e²'], [0, '0'], [2, '2'], [-2, '−2']].find(([x]) => Math.abs(x - v) < 1e-9);
+  return m ? m[1] : num(v, 3);
+};
+// 按关键值把 a 的取值分段（开区间和单点交替），相邻且根数相同的段合并
+function table() {
+  const ks = keyValues(), segs = [];
+  segs.push({ lo: -I, hi: ks[0], lc: false, rc: false, n: count(ks[0] - 1) });
+  ks.forEach((k, i) => {
+    segs.push({ lo: k, hi: k, lc: true, rc: true, n: count(k) });
+    const hi = i < ks.length - 1 ? ks[i + 1] : I;
+    segs.push({ lo: k, hi, lc: false, rc: false, n: count(hi === I ? k + 1 : (k + hi) / 2) });
+  });
+  const rows = [];
+  segs.forEach(s => {
+    const last = rows[rows.length - 1];
+    if (last && last.n === s.n) { last.hi = s.hi; last.rc = s.rc; } else rows.push({ ...s });
+  });
+  const b = v => (v === -I ? '−∞' : v === I ? '+∞' : kname(v));
+  rows.forEach(r => { r.lab = r.lo === r.hi ? `{${b(r.lo)}}` : `${r.lc ? '[' : '('}${b(r.lo)}, ${b(r.hi)}${r.rc ? ']' : ')'}`; });
+  return rows;
+}
+const inRow = (r, a) => (r.lc ? a >= r.lo - 1e-9 : a > r.lo + 1e-12) && (r.rc ? a <= r.hi + 1e-9 : a < r.hi - 1e-12);
+
+function roots(a) {
+  const { g, pieces } = F(), out = [];
+  pieces.forEach(p => {
+    const L = Number.isFinite(p.L) ? p.L + 1e-7 : -60, R = Number.isFinite(p.R) ? p.R - 1e-7 : 60;
+    Plane.roots(x => g(x) - a, L, R, 30000).forEach(r => out.push(r));
+    p.crits.forEach(c => { if (Math.abs(g(c) - a) < 1e-9 && !out.some(r => Math.abs(r - c) < 1e-3)) out.push(c); });
+  });
+  return out.sort((x, y) => x - y);
+}
+
+const P = Plane.plane($('cv'), {
+  xmin: -0.5, xmax: 12, ymin: -1.5, ymax: 1, equal: false, draw,
+  pick(px, py, r) { return Math.abs(py - P.Y(st.a)) < r ? 'a' : null; },
+  move(k, x, y) {
+    let a = Math.max(-3, Math.min(5, y));
+    const near = keyValues().find(v => Math.abs(P.Y(v) - P.Y(a)) < 8);
+    st.a = near !== undefined ? near : Math.round(a * 1000) / 1000;
+    Lab.setRange('a', st.a);
+    render();
+  },
+});
+const P2 = Plane.plane($('chart'), { xmin: -1, xmax: 10, ymin: -3, ymax: 3, equal: false, draw: drawOrig });
+
+function draw(P) {
+  const d = F();
+  P.grid();
+  keyValues().forEach(v => { P.line(0, v, 1, 0, 'rgba(124,58,237,.35)', 1, [5, 5]); P.label(`y = ${kname(v)}`, P.vis().x1, v, '#7c3aed', { dx: -8, dy: -10, align: 'right', size: 12, bold: true }); });
+  d.pieces.forEach(p => { if (p.L === 0 || p.R === 0) P.line(0, 0, 0, 1, 'rgba(245,158,11,.6)', 1.2, [6, 4]); });
+  d.pieces.forEach(p => P.fn(d.g, '#2563eb', 3, null, Number.isFinite(p.L) ? p.L + 1e-9 : -I, Number.isFinite(p.R) ? p.R - 1e-9 : I));
+  d.pieces.forEach(p => p.crits.forEach(c => P.pt(c, d.g(c), '#7c3aed', `(${kname(c) === num(c, 3) ? num(c, 3) : kname(c)}, ${kname(d.g(c))})`, { r: 4.5, size: 12 })));
+  P.line(0, st.a, 1, 0, '#ea580c', 2.6);
+  roots(st.a).forEach(r => P.pt(r, st.a, '#16a34a', null, { r: 6 }));
+  P.corner(`y = ${d.gs} 与 y = a = ${num(st.a, 3)}：${count(st.a)} 个交点`, '#111827');
+}
+
+function drawOrig(Q) {
+  const o = F().orig;
+  if (!o) { Q.grid(); Q.corner(`原方程就是 a = ${F().gs}，图像同上`, '#6b7280'); return; }
+  Q.grid();
+  Q.fn(o.f1, '#2563eb', 2.6);
+  Q.fn(x => o.f2(x, st.a), '#ea580c', 2.4);
+  const rs = roots(st.a);
+  rs.forEach(r => { const y = o.f1(r); if (Number.isFinite(y)) Q.pt(r, y, '#16a34a', null, { r: 5 }); });
+  Q.corner(`原方程两边：${o.t1}（蓝）与 ${o.t2}（橙），交点也是 ${rs.length} 个`, '#374151');
+}
+
+function updatePanel() {
+  const d = F(), n = count(st.a);
+  let h = `<div class="node"><span class="f">① 分离参数</span><br><span class="v">${d.sep}</span></div>`;
+  h += `<div class="link">↓</div><div class="node"><span class="f">② 求导看单调性</span><br><span class="v">g(x) = ${d.gs}，g′(x) = ${d.dg}</span><br><span class="n">${d.pieces.flatMap(p => p.crits).map(c => `x = ${kname(c) === num(c, 3) ? num(c, 3) : kname(c)} 处取${(d.g(c - 1e-3) < d.g(c)) === (d.g(c + 1e-3) < d.g(c)) ? (d.g(c - 1e-3) < d.g(c) ? '极大值' : '极小值') : '—'} ${kname(d.g(c))}`).join('；') || '无极值点'}</span></div>`;
+  h += `<div class="link">↓</div><div class="node"><span class="f">③ 端点处的极限</span><br><span class="n">${d.limText}</span></div>`;
+  const rows = table();
+  h += `<div class="link">↓</div><div class="node"><span class="f">④ 结论（水平线从下往上扫）</span><br>${rows.map(r =>
+    `<span class="v" style="${inRow(r, st.a) ? 'background:#fef3c7;font-weight:bold' : ''}">a ∈ ${r.lab}：${r.n} 个</span>`).join('<br>')}</div>`;
+  h += `<div class="node ${n ? 'ok' : 'warn'}"><span class="f">当前 a = ${num(st.a, 3)}：${n} 个根</span>${roots(st.a).length ? `<br><span class="n">x ≈ ${roots(st.a).map(r => num(r, 3)).join('，')}</span>` : ''}</div>`;
+  $('chain').innerHTML = h;
+}
+
+function render() { P.redraw(); P2.redraw(); updatePanel(); }
+
+function choose(id, a) {
+  st.fn = id; $('fn').value = id;
+  if (a !== undefined) { st.a = a; Lab.setRange('a', a); }
+  P.setWindow(...F().win);
+  P2.setWindow(...(F().orig ? F().orig.win : F().win));
+  render();
+}
+$('fn').addEventListener('change', () => choose($('fn').value));
+Lab.range('a', v => num(v, 3), v => { st.a = v; render(); });
+Lab.presets('presets', [
+  ['ln x = ax 有两个根', () => choose('lnxx', 0.2)],
+  ['eˣ = ax：相切时 a = e', () => choose('exx', E)],
+  ['xeˣ = a 有两个根', () => choose('xex', -0.2)],
+  ['x ln x = a', () => choose('xlnx', -0.2)],
+  ['x² = aeˣ 有三个根', () => choose('x2ex', 0.3)],
+  ['x³ − 3x = a 三个根', () => choose('cubic', 1)],
+]);
+choose('lnxx', 0.2);
+</script>
+</body>
+</html>

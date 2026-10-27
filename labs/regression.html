@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>一元线性回归 · 交互实验</title>
+<link rel="stylesheet" href="../assets/lab.css">
+</head>
+<body>
+<div id="top"><a href="../index.html">← 知识地图</a><b>一元线性回归</b><span class="crumb">选择性必修第三册 · 第八章 成对数据的统计分析</span></div>
+<div id="app">
+  <div id="left">
+    <div class="stage"><canvas id="cv"></canvas><div class="hint" id="hint">拖动数据点；点击空白处添加点，双击点删除</div></div>
+  </div>
+  <aside id="panel">
+    <div class="tip"><b>最小二乘法</b>：在所有直线里，找使残差平方和 Σ(yᵢ − ŷᵢ)² 最小的那一条，就是经验回归直线 ŷ = b̂x + â，它一定经过样本中心 (x̄, ȳ)。</div>
+
+    <h2>显示</h2>
+    <div class="row"><label><input type="checkbox" id="showRes" checked> 残差（竖直线段）</label></div>
+    <div class="row"><label><input type="checkbox" id="showSq"> 残差平方（正方形面积）</label></div>
+    <div class="row"><label><input type="checkbox" id="showMine"> 我自己的直线（对比）</label></div>
+    <div id="mineCtl" style="display:none">
+      <div class="row">斜率 k <input type="range" id="mk" min="-5" max="5" step="0.05" value="1"><span class="val" id="mkv"></span></div>
+      <div class="row">截距 m <input type="range" id="mm" min="-10" max="20" step="0.1" value="0"><span class="val" id="mmv"></span></div>
+      <div class="row"><button id="snap" style="flex:1">把我的直线移到样本中心</button></div>
+    </div>
+
+    <h2>高考题型</h2>
+    <div class="grid" id="presets"></div>
+
+    <h2>计算过程</h2>
+    <div class="chain" id="chain"></div>
+    <div id="table"></div>
+
+    <h2>常用结论</h2>
+    <details open>
+      <summary>拖一拖，验证这些结论</summary>
+      <ul>
+        <li>b̂ = Σ(xᵢ − x̄)(yᵢ − ȳ) / Σ(xᵢ − x̄)² = (Σxᵢyᵢ − n·x̄·ȳ) / (Σxᵢ² − n·x̄²)，â = ȳ − b̂x̄。</li>
+        <li>回归直线必过样本中心 (x̄, ȳ)——这是选择题、填空题求参数最常用的条件。</li>
+        <li>相关系数 r 与 b̂ 同号；|r| 越接近 1，线性相关越强。r 没有单位，交换 x、y 不变。</li>
+        <li>残差 eᵢ = yᵢ − ŷᵢ，残差之和为 0；R² = 1 − Σeᵢ² / Σ(yᵢ − ȳ)² 越大，拟合越好，一元线性回归中 R² = r²。</li>
+        <li>回归方程只能做"估计"，预测值不是精确值；离群点会明显拉动回归直线。</li>
+      </ul>
+    </details>
+  </aside>
+</div>
+
+<script src="../assets/lab.js"></script>
+<script src="../assets/plane.js"></script>
+<script>
+const { $, num } = Lab;
+const st = { pts: [], showRes: true, showSq: false, showMine: false, mk: 1, mm: 0, xl: 'x', yl: 'y' };
+
+function stats() {
+  const n = st.pts.length;
+  if (n < 2) return null;
+  const xb = st.pts.reduce((s, p) => s + p[0], 0) / n, yb = st.pts.reduce((s, p) => s + p[1], 0) / n;
+  let sxy = 0, sxx = 0, syy = 0, Sxy = 0, Sxx = 0;
+  st.pts.forEach(([x, y]) => { sxy += (x - xb) * (y - yb); sxx += (x - xb) ** 2; syy += (y - yb) ** 2; Sxy += x * y; Sxx += x * x; });
+  if (sxx < 1e-12) return { n, xb, yb, bad: true };
+  const b = sxy / sxx, a = yb - b * xb, r = syy > 1e-12 ? sxy / Math.sqrt(sxx * syy) : 0;
+  const sse = st.pts.reduce((s, [x, y]) => s + (y - (b * x + a)) ** 2, 0);
+  return { n, xb, yb, b, a, r, sse, syy, Sxy, Sxx, R2: syy > 1e-12 ? 1 - sse / syy : 1 };
+}
+const sseOf = (k, m) => st.pts.reduce((s, [x, y]) => s + (y - (k * x + m)) ** 2, 0);
+
+const P = Plane.plane($('cv'), {
+  xmin: -1, xmax: 11, ymin: -1, ymax: 11, equal: false, draw,
+  pick(px, py, r) {
+    const i = st.pts.findIndex(([x, y]) => Math.hypot(P.X(x) - px, P.Y(y) - py) < r);
+    return i >= 0 ? { i } : null;
+  },
+  move(o, x, y) { st.pts[o.i] = [Math.round(x * 10) / 10, Math.round(y * 10) / 10]; update(); },
+});
+
+function draw(P) {
+  P.grid({ xl: st.xl, yl: st.yl });
+  const s = stats();
+  if (s && !s.bad) {
+    const f = x => s.b * x + s.a;
+    st.pts.forEach(([x, y]) => {
+      const e = y - f(x);
+      if (st.showSq) { const side = Math.abs(e) * P.ky / P.kx; P.poly([[x, y], [x + side, y], [x + side, f(x)], [x, f(x)]], 'rgba(234,88,12,.12)', 'rgba(234,88,12,.5)', 1); }
+      if (st.showRes) P.seg(x, y, x, f(x), e >= 0 ? '#16a34a' : '#dc2626', 1.6, [4, 3]);
+    });
+    P.fn(f, '#2563eb', 2.6);
+    if (st.showMine) P.fn(x => st.mk * x + st.mm, '#7c3aed', 2, [8, 5]);
+    P.pt(s.xb, s.yb, '#f59e0b', '(x̄, ȳ)', { r: 7 });
+    P.corner(`ŷ = ${num(s.b, 4)}x${Plane.signed(s.a, 4)}　r = ${num(s.r, 4)}`, '#2563eb', 'right');
+    if (st.showMine) P.corner(`我的直线：残差平方和 ${num(sseOf(st.mk, st.mm), 3)}  ≥  最小值 ${num(s.sse, 3)}`, '#7c3aed', 'right', 1);
+  }
+  st.pts.forEach(([x, y]) => P.pt(x, y, '#111827', null, { r: 6 }));
+}
+
+function update() { P.redraw(); panel(); }
+
+function panel() {
+  const s = stats();
+  let h = '';
+  if (!s) { $('chain').innerHTML = '<div class="node warn">至少需要 2 个点</div>'; $('table').innerHTML = ''; return; }
+  if (s.bad) { $('chain').innerHTML = '<div class="node warn">所有点的 x 都相同，Σ(xᵢ − x̄)² = 0，无法求回归直线</div>'; $('table').innerHTML = ''; return; }
+  const n = s.n;
+  h += `<div class="node"><span class="f">① 样本中心</span><br><span class="v">x̄ = ${num(s.xb, 4)}，ȳ = ${num(s.yb, 4)}</span></div>`;
+  h += `<div class="node"><span class="f">② 斜率</span> b̂ = (Σxᵢyᵢ − n·x̄·ȳ) / (Σxᵢ² − n·x̄²)<br><span class="v">= (${num(s.Sxy, 3)} − ${n}×${num(s.xb, 3)}×${num(s.yb, 3)}) / (${num(s.Sxx, 3)} − ${n}×${num(s.xb, 3)}²) = ${num(s.b, 4)}</span></div>`;
+  h += `<div class="node"><span class="f">③ 截距</span> â = ȳ − b̂x̄<br><span class="v">= ${num(s.yb, 4)} − ${num(s.b, 4)}×${num(s.xb, 4)} = ${num(s.a, 4)}</span></div>`;
+  h += `<div class="node ok"><span class="f">④ 经验回归方程</span><br><span class="v">ŷ = ${num(s.b, 4)}x${Plane.signed(s.a, 4)}</span><br><span class="n">x 每增加 1，ŷ 平均${s.b >= 0 ? '增加' : '减少'} ${num(Math.abs(s.b), 4)}（是"平均"，不是一定）</span></div>`;
+  const strength = Math.abs(s.r) >= 0.75 ? '很强' : Math.abs(s.r) >= 0.3 ? '一般' : '很弱';
+  h += `<div class="node"><span class="f">⑤ 相关系数</span> r = Σ(xᵢ − x̄)(yᵢ − ȳ) / √[Σ(xᵢ − x̄)²·Σ(yᵢ − ȳ)²]<br><span class="v">r = ${num(s.r, 4)}：${s.r > 0 ? '正' : s.r < 0 ? '负' : '不'}相关，线性相关性${strength}</span></div>`;
+  h += `<div class="node"><span class="f">⑥ 拟合效果</span><br><span class="v">残差平方和 = ${num(s.sse, 4)}，R² = ${num(s.R2, 4)}（= r² = ${num(s.r * s.r, 4)}）</span></div>`;
+  $('chain').innerHTML = h;
+  if (n <= 10) {
+    const f = x => s.b * x + s.a;
+    $('table').innerHTML = `<table class="tbl"><tr><th>x</th><th>y</th><th>ŷ</th><th>残差 e</th></tr>${st.pts.map(([x, y]) => `<tr><td>${num(x)}</td><td>${num(y)}</td><td>${num(f(x), 3)}</td><td style="color:${y - f(x) >= 0 ? '#16a34a' : '#dc2626'}">${num(y - f(x), 3)}</td></tr>`).join('')}<tr><td colspan="3">残差和</td><td>${num(st.pts.reduce((t, [x, y]) => t + y - f(x), 0), 6)}</td></tr></table>`;
+  } else $('table').innerHTML = '';
+}
+
+const cv = $('cv');
+let downAt = null;
+cv.addEventListener('pointerdown', e => { const r = cv.getBoundingClientRect(); downAt = [e.clientX - r.left, e.clientY - r.top]; });
+cv.addEventListener('click', e => {
+  const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+  if (!downAt || Math.hypot(px - downAt[0], py - downAt[1]) > 4) return;
+  if (st.pts.some(([x, y]) => Math.hypot(P.X(x) - px, P.Y(y) - py) < 14)) return;
+  st.pts.push([Math.round(P.ix(px) * 10) / 10, Math.round(P.iy(py) * 10) / 10]);
+  update();
+});
+cv.addEventListener('dblclick', e => {
+  const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+  const i = st.pts.findIndex(([x, y]) => Math.hypot(P.X(x) - px, P.Y(y) - py) < 14);
+  if (i >= 0) { st.pts.splice(i, 1); e.stopImmediatePropagation(); update(); }
+}, true);
+
+$('showRes').addEventListener('change', e => { st.showRes = e.target.checked; P.redraw(); });
+$('showSq').addEventListener('change', e => { st.showSq = e.target.checked; P.redraw(); });
+$('showMine').addEventListener('change', e => { st.showMine = e.target.checked; $('mineCtl').style.display = st.showMine ? '' : 'none'; P.redraw(); });
+Lab.range('mk', v => num(v), v => { st.mk = v; P.redraw(); });
+Lab.range('mm', v => num(v), v => { st.mm = v; P.redraw(); });
+$('snap').addEventListener('click', () => { const s = stats(); if (!s || s.bad) return; st.mm = Math.round((s.yb - st.mk * s.xb) * 10) / 10; Lab.setRange('mm', st.mm); P.redraw(); });
+
+function fit() {
+  if (!st.pts.length) return;
+  const xs = st.pts.map(p => p[0]), ys = st.pts.map(p => p[1]);
+  const x0 = Math.min(0, ...xs), x1 = Math.max(...xs), y0 = Math.min(0, ...ys), y1 = Math.max(...ys);
+  const dx = (x1 - x0) || 1, dy = (y1 - y0) || 1;
+  P.setWindow(x0 - dx * 0.12, x1 + dx * 0.15, y0 - dy * 0.12, y1 + dy * 0.18);
+}
+function load(pts, xl = 'x', yl = 'y') {
+  st.pts = pts.map(p => p.slice()); st.xl = xl; st.yl = yl;
+  const s = stats();
+  if (s && !s.bad) {
+    const kMax = Math.ceil(Math.abs(s.b) * 3 + 1), span = Math.max(...pts.map(p => Math.abs(p[1]))) * 2 + 5;
+    Object.assign($('mk'), { min: -kMax, max: kMax, step: kMax / 100 });
+    Object.assign($('mm'), { min: -Math.ceil(span), max: Math.ceil(span), step: Math.ceil(span) / 200 });
+    st.mk = Math.round(s.b * 0.6 * 100) / 100; st.mm = Math.round((s.yb - st.mk * s.xb + span / 20) * 10) / 10;
+    Lab.setRange('mk', st.mk); Lab.setRange('mm', st.mm);
+  }
+  fit(); update();
+}
+
+Lab.presets('presets', [
+  ['广告费与销售额', () => load([[2, 30], [4, 40], [5, 60], [6, 50], [8, 70]], '广告费x', '销售额y')],
+  ['年份代码与产量', () => load([[1, 2.4], [2, 2.7], [3, 4.1], [4, 6.4], [5, 7.9], [6, 9.2], [7, 10.5]], '年份代码x', '产量y')],
+  ['负相关', () => load([[1, 9.2], [2, 8.1], [3, 7.4], [4, 6.6], [5, 5.1], [6, 4.4], [7, 3.0]])],
+  ['几乎不相关', () => load([[1, 5], [2, 2], [3, 7], [4, 3], [5, 6], [6, 2.5], [7, 5.5], [8, 4]])],
+  ['一个离群点拉偏直线', () => load([[1, 1.2], [2, 2.1], [3, 2.8], [4, 4.2], [5, 5.1], [6, 5.8], [7, 1]])],
+  ['强相关但非线性', () => load([[-3, 9], [-2, 4], [-1, 1], [0, 0], [1, 1], [2, 4], [3, 9]])],
+]);
+load([[2, 30], [4, 40], [5, 60], [6, 50], [8, 70]], '广告费x', '销售额y');
+</script>
+</body>
+</html>

@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>空间向量与立体几何 · 交互实验</title>
+<link rel="stylesheet" href="../assets/lab.css">
+<style>
+  .pick { display: flex; gap: 4px; align-items: center; font-size: 13px; margin: 5px 0; flex-wrap: wrap; }
+  .pick select { font: inherit; font-size: 13px; padding: 3px 4px; border: 1px solid #d1d5db; border-radius: 6px; }
+  .pick .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+</style>
+</head>
+<body>
+<div id="top"><a href="../index.html">← 知识地图</a><b>空间向量与立体几何</b><span class="crumb">必修第二册 · 第八章 立体几何初步 / 选择性必修第一册 · 第一章 空间向量与立体几何</span></div>
+<div id="app">
+  <div id="left">
+    <div class="stage"><canvas id="cv"></canvas><div class="hint">按住拖动旋转几何体，滚轮缩放；看不见的棱画成虚线</div></div>
+  </div>
+  <aside id="panel">
+    <div class="tip">向量法三步：<b>建系写坐标 → 求方向向量和法向量 → 套公式</b>。线面角 sin θ = |cos⟨l, n⟩|；二面角 |cos θ| = |cos⟨n₁, n₂⟩|（锐角还是钝角看图）；点面距 d = |AQ·n| / |n|。</div>
+
+    <h2>几何体</h2>
+    <div class="row"><select id="solid" style="width:100%;min-width:0"></select></div>
+
+    <h2>动点（在棱上，λ 表示从第一个端点出发的比例）</h2>
+    <div class="pick">E 在棱 <select id="eEdge"></select> λ <input type="range" id="eL" min="0" max="1" step="0.05" value="0.5" style="flex:1"><span id="eLv" style="width:36px"></span></div>
+    <div class="pick">F 在棱 <select id="fEdge"></select> λ <input type="range" id="fL" min="0" max="1" step="0.05" value="0.5" style="flex:1"><span id="fLv" style="width:36px"></span></div>
+
+    <h2>选点</h2>
+    <div class="pick"><label class="chk"><input type="checkbox" id="on_l" checked><span class="sw" style="background:#dc2626"></span>直线 l</label><select id="l0"></select><select id="l1"></select></div>
+    <div class="pick"><label class="chk"><input type="checkbox" id="on_m"><span class="sw" style="background:#ea580c"></span>直线 m</label><select id="m0"></select><select id="m1"></select></div>
+    <div class="pick"><label class="chk"><input type="checkbox" id="on_a" checked><span class="sw" style="background:#2563eb"></span>平面 α</label><select id="a0"></select><select id="a1"></select><select id="a2"></select></div>
+    <div class="pick"><label class="chk"><input type="checkbox" id="on_b"><span class="sw" style="background:#16a34a"></span>平面 β</label><select id="b0"></select><select id="b1"></select><select id="b2"></select></div>
+    <div class="pick"><label class="chk"><input type="checkbox" id="on_q"><span class="sw" style="background:#7c3aed"></span>点 Q 到平面 α</label><select id="q0"></select></div>
+
+    <h2>高考题型</h2>
+    <div class="grid" id="presets"></div>
+
+    <h2>计算过程</h2>
+    <div class="chain" id="chain"></div>
+
+    <h2>常用结论</h2>
+    <details open>
+      <summary>拖一拖，验证这些结论</summary>
+      <ul>
+        <li>法向量 n 满足 n·AB = 0 且 n·AC = 0；可直接用叉积 AB × AC，再约去公因数。</li>
+        <li>异面直线所成角范围 (0°, 90°]，线面角 [0°, 90°]，二面角 [0°, 180°]。</li>
+        <li>正方体中体对角线 AC₁ 垂直于平面 A₁BD，并被它和平面 CB₁D₁ 三等分。</li>
+        <li>平面截正方体的截面可能是三角形、四边形、五边形、六边形；截面过体心且垂直于体对角线时是正六边形。</li>
+        <li>动点问题：把动点设成 E = X + λ(Y − X)，坐标里带上 λ，按条件列方程求 λ。</li>
+      </ul>
+    </details>
+  </aside>
+</div>
+
+<script src="../assets/lab.js"></script>
+<script src="../assets/plane.js"></script>
+<script>
+const { $, fmt, num } = Lab;
+// 几何体：顶点坐标（建系后的坐标）、面（按顶点名）、坐标原点与轴的说明
+const SOLIDS = {
+  cube: {
+    name: '正方体 ABCD-A₁B₁C₁D₁（棱长 2）',
+    V: { A: [2, 0, 0], B: [2, 2, 0], C: [0, 2, 0], D: [0, 0, 0], A1: [2, 0, 2], B1: [2, 2, 2], C1: [0, 2, 2], D1: [0, 0, 2] },
+    F: [['A', 'B', 'C', 'D'], ['A1', 'B1', 'C1', 'D1'], ['A', 'B', 'B1', 'A1'], ['B', 'C', 'C1', 'B1'], ['C', 'D', 'D1', 'C1'], ['D', 'A', 'A1', 'D1']],
+    axes: '以 D 为原点，DA、DC、DD₁ 分别为 x、y、z 轴',
+  },
+  pyramid: {
+    name: '四棱锥 P-ABCD（PA ⊥ 底面，底面正方形，PA = AB = 2）',
+    V: { A: [0, 0, 0], B: [2, 0, 0], C: [2, 2, 0], D: [0, 2, 0], P: [0, 0, 2] },
+    F: [['A', 'B', 'C', 'D'], ['P', 'A', 'B'], ['P', 'B', 'C'], ['P', 'C', 'D'], ['P', 'D', 'A']],
+    axes: '以 A 为原点，AB、AD、AP 分别为 x、y、z 轴',
+  },
+  regular: {
+    name: '正四棱锥 P-ABCD（底面边长 2，高 2）',
+    V: { A: [1, -1, 0], B: [1, 1, 0], C: [-1, 1, 0], D: [-1, -1, 0], P: [0, 0, 2] },
+    F: [['A', 'B', 'C', 'D'], ['P', 'A', 'B'], ['P', 'B', 'C'], ['P', 'C', 'D'], ['P', 'D', 'A']],
+    axes: '以底面中心 O 为原点，z 轴沿高 OP',
+  },
+  prism: {
+    name: '直三棱柱 ABC-A₁B₁C₁（AB ⊥ AC，AB = AC = AA₁ = 2）',
+    V: { A: [0, 0, 0], B: [2, 0, 0], C: [0, 2, 0], A1: [0, 0, 2], B1: [2, 0, 2], C1: [0, 2, 2] },
+    F: [['A', 'B', 'C'], ['A1', 'B1', 'C1'], ['A', 'B', 'B1', 'A1'], ['B', 'C', 'C1', 'B1'], ['C', 'A', 'A1', 'C1']],
+    axes: '以 A 为原点，AB、AC、AA₁ 分别为 x、y、z 轴',
+  },
+};
+const st = { solid: 'cube', yaw: -1.85, pitch: 0.3, zoom: 1, eEdge: 'C-C1', eL: 0.5, fEdge: 'A-B', fL: 0.5,
+  l: ['A', 'C1'], m: ['A1', 'B'], a: ['A1', 'B', 'D'], b: ['C1', 'B', 'D'], q: ['A'], on: { l: true, m: false, a: true, b: false, q: false } };
+
+const S = () => SOLIDS[st.solid];
+const dn = n => n.replace(/(\d+)/, d => Lab.sub(d));
+const add = (u, v) => u.map((x, i) => x + v[i]), sub = (u, v) => u.map((x, i) => x - v[i]), mul = (k, u) => u.map(x => k * x);
+const dot = (u, v) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+const cross = (u, v) => [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+const len = u => Math.sqrt(dot(u, u));
+const vs = u => `(${u.map(x => num(x, 3)).join(', ')})`;
+const deg = r => `${num(r * 180 / Math.PI, 2)}°`;
+
+function edges() {
+  const set = new Map();
+  S().F.forEach(f => f.forEach((p, i) => { const q = f[(i + 1) % f.length]; const k = [p, q].sort().join('-'); if (!set.has(k)) set.set(k, { p, q, faces: [] }); set.get(k).faces.push(f); }));
+  return [...set.values()];
+}
+const edgeKey = e => `${e.p}-${e.q}`;
+function points() {
+  const V = { ...S().V };
+  const onEdge = (key, l) => { const [p, q] = key.split('-'); return V[p] && V[q] ? add(V[p], mul(l, sub(V[q], V[p]))) : null; };
+  const E = onEdge(st.eEdge, st.eL), F = onEdge(st.fEdge, st.fL);
+  if (E) V.E = E;
+  if (F) V.F = F;
+  return V;
+}
+
+// 简化整数向量：各分量同除以最大公约数
+function simplify(n) {
+  if (n.every(x => Math.abs(x - Math.round(x)) < 1e-9)) {
+    const g = n.reduce((a, x) => Lab.gcd(a, Math.round(Math.abs(x))), 0) || 1;
+    let r = n.map(x => Math.round(x) / g);
+    if (r.find(x => x !== 0) < 0) r = r.map(x => -x);
+    return r.map(x => x + 0);
+  }
+  const m = Math.max(...n.map(Math.abs)) || 1;
+  return n.map(x => x / m);
+}
+
+// 平面与凸多面体的截面多边形
+function section(P0, n, V) {
+  const pts = [];
+  const sd = p => dot(n, sub(p, P0));
+  edges().forEach(({ p, q }) => {
+    const a = V[p], b = V[q], sa = sd(a), sb = sd(b), eps = 1e-9 * (len(n) + 1);
+    if (Math.abs(sa) < eps) pts.push(a);
+    if (Math.abs(sb) < eps) pts.push(b);
+    if (sa * sb < 0 && Math.abs(sa) > eps && Math.abs(sb) > eps) pts.push(add(a, mul(sa / (sa - sb), sub(b, a))));
+  });
+  const uniq = [];
+  pts.forEach(p => { if (!uniq.some(u => len(sub(u, p)) < 1e-7)) uniq.push(p); });
+  if (uniq.length < 3) return uniq;
+  const c = mul(1 / uniq.length, uniq.reduce(add, [0, 0, 0]));
+  const u = sub(uniq[0], c), w = cross(n, u);
+  return uniq.sort((p, q) => Math.atan2(dot(sub(p, c), w), dot(sub(p, c), u)) - Math.atan2(dot(sub(q, c), w), dot(sub(q, c), u)));
+}
+
+// ---------- 投影 ----------
+const view = Lab.canvas($('cv'), () => draw());
+function projector() {
+  const V = S().V, names = Object.keys(V);
+  const ctr = mul(1 / names.length, names.reduce((s, k) => add(s, V[k]), [0, 0, 0]));
+  const cy = Math.cos(st.yaw), sy = Math.sin(st.yaw), cp = Math.cos(st.pitch), sp = Math.sin(st.pitch);
+  const k = Math.min(view.W, view.H) / 5.2 * st.zoom;
+  // 返回 [屏幕右, 屏幕上, 朝向观察者]，三者构成右手系，图形不会被镜像
+  const rot = p => { const [x, y, z] = sub(p, ctr), x1 = x * cy - y * sy, y1 = x * sy + y * cy; return [x1, z * cp + y1 * sp, z * sp - y1 * cp]; };
+  return { rot, pr: p => { const r = rot(p); return [view.W / 2 + r[0] * k, view.H / 2 - r[1] * k, r[2]]; }, ctr, dir: n => rot(add(n, ctr))[2] - rot(ctr)[2] };
+}
+
+function draw() {
+  if (!view.W) return;
+  view.begin();
+  const c = view.ctx, V = points(), pj = projector(), base = S().V;
+  // 坐标轴
+  const O = st.solid === 'cube' ? base.D : st.solid === 'regular' ? [0, 0, 0] : base.A;
+  [[[1, 0, 0], 'x'], [[0, 1, 0], 'y'], [[0, 0, 1], 'z']].forEach(([d, t]) => {
+    const a = pj.pr(O), b = pj.pr(add(O, mul(st.solid === 'regular' ? 2.2 : 2.9, d)));
+    Lab.vec(c, a[0], a[1], b[0], b[1], 'rgba(107,114,128,.55)', 1.3, 8);
+    Lab.text(c, t, b[0] + 8, b[1] - 6, '#6b7280', { size: 13, bold: true });
+  });
+  // 截面
+  const plane = (key, fill, stroke) => {
+    const [p0, p1, p2] = st[key].map(n => V[n]);
+    if (!p0 || !p1 || !p2) return;
+    const n = cross(sub(p1, p0), sub(p2, p0));
+    if (len(n) < 1e-9) return;
+    const poly = section(p0, n, V).map(pj.pr);
+    if (poly.length < 3) return;
+    c.beginPath(); poly.forEach((p, i) => c[i ? 'lineTo' : 'moveTo'](p[0], p[1])); c.closePath();
+    c.fillStyle = fill; c.fill(); c.strokeStyle = stroke; c.lineWidth = 1.6; c.stroke();
+  };
+  if (st.on.a) plane('a', 'rgba(37,99,235,.16)', 'rgba(37,99,235,.7)');
+  if (st.on.b) plane('b', 'rgba(22,163,74,.16)', 'rgba(22,163,74,.7)');
+  // 棱：相邻面有一个朝向观察者就是可见棱
+  const ctr = pj.ctr;
+  const front = f => {
+    const P = f.map(n => base[n]), n0 = cross(sub(P[1], P[0]), sub(P[2], P[0]));
+    const fc = mul(1 / P.length, P.reduce(add, [0, 0, 0])), n = dot(n0, sub(fc, ctr)) < 0 ? mul(-1, n0) : n0;
+    return pj.dir(n) > 0;
+  };
+  edges().forEach(e => {
+    const a = pj.pr(base[e.p]), b = pj.pr(base[e.q]), vis = e.faces.some(front);
+    Lab.line(c, a[0], a[1], b[0], b[1], vis ? '#111827' : '#9ca3af', vis ? 2 : 1.4, vis ? null : [6, 5]);
+  });
+  // 直线
+  const seg = (key, color) => {
+    const [p, q] = st[key].map(n => V[n]);
+    if (!p || !q) return;
+    const a = pj.pr(p), b = pj.pr(q);
+    Lab.line(c, a[0], a[1], b[0], b[1], color, 3);
+  };
+  if (st.on.l) seg('l', '#dc2626');
+  if (st.on.m) seg('m', '#ea580c');
+  if (st.on.q && st.on.a) {
+    const Q = V[st.q[0]], [p0, p1, p2] = st.a.map(n => V[n]), n = cross(sub(p1, p0), sub(p2, p0));
+    if (Q && len(n) > 1e-9) {
+      const foot = sub(Q, mul(dot(sub(Q, p0), n) / dot(n, n), n)), a = pj.pr(Q), b = pj.pr(foot);
+      Lab.line(c, a[0], a[1], b[0], b[1], '#7c3aed', 2.4, [5, 4]);
+      Lab.dot(c, b[0], b[1], 4, '#7c3aed');
+    }
+  }
+  // 顶点与动点
+  Object.entries(V).forEach(([nm, p]) => {
+    const q = pj.pr(p), dyn = nm === 'E' || nm === 'F';
+    Lab.dot(c, q[0], q[1], dyn ? 5.5 : 3.5, dyn ? '#db2777' : '#111827');
+    const off = sub(q, pj.pr(ctr)), L = Math.hypot(off[0], off[1]) || 1;
+    Lab.text(c, dn(nm), q[0] + off[0] / L * 16, q[1] + off[1] / L * 16, dyn ? '#db2777' : '#111827', { size: 14, bold: true });
+  });
+  Lab.text(c, S().axes, 14, 22, '#6b7280', { size: 13, align: 'left' });
+}
+
+Lab.draggable($('cv'), {
+  pick: (x, y) => ({ x, y, yaw: st.yaw, pitch: st.pitch }),
+  move: (o, x, y) => { st.yaw = o.yaw + (x - o.x) * 0.01; st.pitch = Math.max(-1.4, Math.min(1.4, o.pitch + (y - o.y) * 0.01)); draw(); },
+});
+$('cv').addEventListener('wheel', e => { e.preventDefault(); st.zoom = Math.min(3, Math.max(0.4, st.zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1))); draw(); }, { passive: false });
+
+// ---------- 计算 ----------
+function normalOf(key, V, label) {
+  const [n0, n1, n2] = st[key], [p0, p1, p2] = [V[n0], V[n1], V[n2]];
+  const u = sub(p1, p0), v = sub(p2, p0), n = cross(u, v);
+  const names = `${dn(n0)}${dn(n1)}${dn(n2)}`;
+  if (len(n) < 1e-9) return { bad: `<div class="node warn"><span class="f">平面 ${label} 的三个点共线，确定不了平面</span></div>` };
+  const ns = simplify(n);
+  return { n: ns, html: `<div class="node"><span class="f">平面 ${label}（${names}）的法向量</span><br><span class="v">${dn(n0)}${dn(n1)} = ${vs(u)}，${dn(n0)}${dn(n2)} = ${vs(v)}</span><br><span class="n">设 n = (x, y, z)，由 n·${dn(n0)}${dn(n1)} = 0、n·${dn(n0)}${dn(n2)} = 0 解得（或取叉积再约分）</span><br><span class="v">n${label === 'α' ? '₁' : '₂'} = ${vs(ns)}</span></div>` };
+}
+
+function update() {
+  const V = points();
+  let h = `<div class="node"><span class="f">建系</span>：${S().axes}<br><span class="n">${Object.entries(V).map(([k, p]) => `${dn(k)}${vs(p)}`).join('　')}</span></div>`;
+  const dirOf = key => { const [a, b] = st[key]; return { v: sub(V[b], V[a]), name: `${dn(a)}${dn(b)}` }; };
+  let nA = null, nB = null;
+  if (st.on.a) { const r = normalOf('a', V, 'α'); h += r.bad || r.html; nA = r.n; }
+  if (st.on.b) { const r = normalOf('b', V, 'β'); h += r.bad || r.html; nB = r.n; }
+  if (st.on.l) {
+    const l = dirOf('l');
+    if (len(l.v) < 1e-9) h += '<div class="node warn">直线 l 的两个点重合</div>';
+    else {
+      h += `<div class="node"><span class="f">直线 l 的方向向量</span> ${l.name} = <span class="v">${vs(l.v)}</span></div>`;
+      if (st.on.m) {
+        const m = dirOf('m');
+        if (len(m.v) > 1e-9) {
+          const cs = Math.abs(dot(l.v, m.v)) / len(l.v) / len(m.v);
+          h += `<div class="link">↓</div><div class="node ok"><span class="f">l 与 m（${m.name} = ${vs(m.v)}）所成角</span><br><span class="v">cos θ = |l·m| / (|l||m|) = ${num(Math.abs(dot(l.v, m.v)), 3)} / (${num(len(l.v), 3)} × ${num(len(m.v), 3)}) = ${num(cs, 4)}</span><br><span class="v">θ = ${deg(Math.acos(Math.min(1, cs)))}</span></div>`;
+        }
+      }
+      if (nA) {
+        const sn = Math.abs(dot(l.v, nA)) / len(l.v) / len(nA);
+        h += `<div class="link">↓</div><div class="node ok"><span class="f">l 与平面 α 所成角</span><br><span class="v">sin θ = |l·n₁| / (|l||n₁|) = ${num(Math.abs(dot(l.v, nA)), 3)} / (${num(len(l.v), 3)} × ${num(len(nA), 3)}) = ${num(sn, 4)}</span><br><span class="v">θ = ${deg(Math.asin(Math.min(1, sn)))}</span>${sn > 1 - 1e-9 ? '<br><span class="n">l ∥ n₁：直线垂直于平面</span>' : sn < 1e-9 ? '<br><span class="n">l ⊥ n₁：直线平行于平面或在平面内</span>' : ''}</div>`;
+      }
+    }
+  }
+  if (nA && nB) {
+    const cs = dot(nA, nB) / len(nA) / len(nB);
+    h += `<div class="link">↓</div><div class="node ok"><span class="f">平面 α 与 β 的夹角</span><br><span class="v">cos⟨n₁, n₂⟩ = ${num(dot(nA, nB), 3)} / (${num(len(nA), 3)} × ${num(len(nB), 3)}) = ${num(cs, 4)}</span><br><span class="v">两平面夹角 = ${deg(Math.acos(Math.min(1, Math.abs(cs))))}</span>`;
+    const common = st.a.filter(x => st.b.includes(x));
+    if (common.length >= 2) {
+      const [u0, u1] = common, e = sub(V[u1], V[u0]);
+      const perp = w => { const d = sub(V[w], V[u0]); return sub(d, mul(dot(d, e) / dot(e, e), e)); };
+      const wa = st.a.find(x => !common.includes(x)), wb = st.b.find(x => !common.includes(x));
+      if (wa && wb) {
+        const pa = perp(wa), pb = perp(wb), th = Math.acos(Math.max(-1, Math.min(1, dot(pa, pb) / len(pa) / len(pb))));
+        h += `<br><span class="v">二面角 ${dn(wa)}-${dn(u0)}${dn(u1)}-${dn(wb)} = ${deg(th)}</span><br><span class="n">${th > Math.PI / 2 + 1e-9 ? '是钝角：cos 取负值' : '是锐角：cos 取正值'}。法向量夹角可能等于二面角，也可能互补，要结合图形判断。</span>`;
+      }
+    } else h += `<br><span class="n">两个平面没有选到公共棱，只给出夹角（0° ~ 90°）。</span>`;
+    h += '</div>';
+  }
+  if (st.on.q && nA) {
+    const Q = V[st.q[0]], P0 = V[st.a[0]], AQ = sub(Q, P0), d = Math.abs(dot(AQ, nA)) / len(nA);
+    h += `<div class="link">↓</div><div class="node ok"><span class="f">点 ${dn(st.q[0])} 到平面 α 的距离</span><br><span class="v">d = |${dn(st.a[0])}${dn(st.q[0])}·n₁| / |n₁| = |${vs(AQ)}·${vs(nA)}| / ${num(len(nA), 4)} = ${num(d, 4)}</span></div>`;
+  }
+  if (st.on.a && nA) {
+    const [p0] = st.a.map(n => V[n]), poly = section(p0, nA, V);
+    if (poly.length >= 3) h += `<div class="node"><span class="n">平面 α 截几何体得到 ${['', '', '', '三角形', '四边形', '五边形', '六边形'][poly.length] || poly.length + ' 边形'}（蓝色）</span></div>`;
+  }
+  $('chain').innerHTML = h;
+}
+
+// ---------- 控件 ----------
+function fillSelect(el, opts, val) { el.innerHTML = opts.map(([v, t]) => `<option value="${v}">${t}</option>`).join(''); el.value = val; }
+function buildUI() {
+  const es = edges().map(e => [edgeKey(e), `${dn(e.p)}${dn(e.q)}`]);
+  if (!es.some(([k]) => k === st.eEdge)) st.eEdge = es[es.length - 1][0];
+  if (!es.some(([k]) => k === st.fEdge) || st.fEdge === st.eEdge) st.fEdge = es.find(([k]) => k !== st.eEdge)[0];
+  fillSelect($('eEdge'), es, st.eEdge); fillSelect($('fEdge'), es, st.fEdge);
+  const names = Object.keys(points()).map(n => [n, dn(n)]);
+  const valid = n => names.some(([k]) => k === n);
+  [['l', 2], ['m', 2], ['a', 3], ['b', 3], ['q', 1]].forEach(([k, cnt]) => {
+    for (let i = 0; i < cnt; i++) {
+      if (!valid(st[k][i])) st[k][i] = names[i % names.length][0];
+      fillSelect($(`${k}${i}`), names, st[k][i]);
+    }
+    $(`on_${k}`).checked = st.on[k];
+  });
+  $('solid').value = st.solid;
+  Lab.setRange('eL', st.eL); Lab.setRange('fL', st.fL);
+}
+function render() { draw(); update(); }
+
+Object.entries(SOLIDS).forEach(([k, s]) => { const o = document.createElement('option'); o.value = k; o.textContent = s.name; $('solid').appendChild(o); });
+const resetView = () => Object.assign(st, st.solid === 'cube' ? { yaw: -1.85, pitch: 0.3 } : { yaw: -0.35, pitch: 0.42 }, { zoom: 1 });
+$('solid').addEventListener('change', () => { st.solid = $('solid').value; resetView(); buildUI(); render(); });
+$('eEdge').addEventListener('change', () => { st.eEdge = $('eEdge').value; render(); });
+$('fEdge').addEventListener('change', () => { st.fEdge = $('fEdge').value; render(); });
+Lab.range('eL', v => num(v, 2), v => { st.eL = v; render(); });
+Lab.range('fL', v => num(v, 2), v => { st.fL = v; render(); });
+[['l', 2], ['m', 2], ['a', 3], ['b', 3], ['q', 1]].forEach(([k, cnt]) => {
+  for (let i = 0; i < cnt; i++) $(`${k}${i}`).addEventListener('change', e => { st[k][i] = e.target.value; render(); });
+  $(`on_${k}`).addEventListener('change', e => { st.on[k] = e.target.checked; render(); });
+});
+
+function apply(o) {
+  const on = { l: false, m: false, a: false, b: false, q: false, ...o.on };
+  Object.assign(st, o, { on });
+  resetView(); buildUI(); render();
+}
+Lab.presets('presets', [
+  ['正方体：AC₁ ⊥ 平面 A₁BD', () => apply({ solid: 'cube', l: ['A', 'C1'], a: ['A1', 'B', 'D'], on: { l: true, a: true } })],
+  ['正方体：二面角 A₁-BD-C₁', () => apply({ solid: 'cube', a: ['A1', 'B', 'D'], b: ['C1', 'B', 'D'], on: { a: true, b: true } })],
+  ['正方体：异面直线 A₁B 与 B₁C', () => apply({ solid: 'cube', l: ['A1', 'B'], m: ['B1', 'C'], on: { l: true, m: true } })],
+  ['截面：平面 AD₁E（E 为 CC₁ 中点）', () => apply({ solid: 'cube', eEdge: 'C-C1', eL: 0.5, a: ['A', 'D1', 'E'], on: { a: true } })],
+  ['四棱锥：二面角 P-CD-A', () => apply({ solid: 'pyramid', a: ['P', 'C', 'D'], b: ['A', 'C', 'D'], on: { a: true, b: true } })],
+  ['四棱锥：PC 与平面 PAB 所成角', () => apply({ solid: 'pyramid', l: ['P', 'C'], a: ['P', 'A', 'B'], on: { l: true, a: true } })],
+  ['四棱锥：A 到平面 PCD 的距离', () => apply({ solid: 'pyramid', a: ['P', 'C', 'D'], q: ['A'], on: { a: true, q: true } })],
+  ['动点：E 在 PC 上，BE 与平面 PAD', () => apply({ solid: 'pyramid', eEdge: 'C-P', eL: 0.5, l: ['B', 'E'], a: ['P', 'A', 'D'], on: { l: true, a: true } })],
+  ['正四棱锥：侧面与底面的二面角', () => apply({ solid: 'regular', a: ['P', 'A', 'B'], b: ['C', 'A', 'B'], on: { a: true, b: true } })],
+  ['直三棱柱：A₁B 与平面 BB₁C₁C', () => apply({ solid: 'prism', l: ['A1', 'B'], a: ['B', 'B1', 'C1'], on: { l: true, a: true } })],
+]);
+buildUI();
+render();
+</script>
+</body>
+</html>

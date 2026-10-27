@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>圆锥曲线的定点与定值 · 交互实验</title>
+<link rel="stylesheet" href="../assets/lab.css">
+</head>
+<body>
+<div id="top"><a href="../index.html">← 知识地图</a><b>圆锥曲线的定点与定值</b><span class="crumb">选择性必修第一册 · 第三章 圆锥曲线的方程</span></div>
+<div id="app">
+  <div id="left">
+    <div class="stage"><canvas id="cv"></canvas><div class="hint">拖动 P 转动弦；曲线上的 A 也可以拖动；灰线是 P 取遍各个位置时的一族直线 PQ</div></div>
+  </div>
+  <aside id="panel">
+    <div class="tip">从定点 A 引两条弦 AP、AQ，两条弦满足某个条件（垂直、斜率积或和为定值）。转动 P，看直线 PQ 是否<b>总过一个定点</b>，或者某个量<b>保持不变</b>。</div>
+
+    <h2>曲线</h2>
+    <div class="seg" id="type"><button data-v="ellipse" class="on">椭圆</button><button data-v="hyper">双曲线</button><button data-v="parab">抛物线</button></div>
+    <div class="row" id="rowA2">a² <input type="range" id="a2" min="1" max="9" step="0.25" value="4"><span class="val" id="a2v"></span></div>
+    <div class="row" id="rowB2">b² <input type="range" id="b2" min="0.5" max="8" step="0.25" value="1"><span class="val" id="b2v"></span></div>
+    <div class="row" id="rowP" style="display:none">p <input type="range" id="p" min="0.5" max="4" step="0.5" value="2"><span class="val" id="pv"></span></div>
+
+    <h2>定点 A 与条件</h2>
+    <div class="seg" id="base"><button data-v="curve" class="on">A 在曲线上</button><button data-v="O">A 为原点 O</button><button data-v="F">A 为焦点 F</button></div>
+    <div class="row" id="rowT"><span id="tLabel">A 的位置</span> <input type="range" id="tA" min="0" max="355" step="5" value="180"><span class="val" id="tAv"></span></div>
+    <div class="seg" id="cond"><button data-v="perp" class="on">AP ⊥ AQ</button><button data-v="prod">k₁·k₂ = λ</button><button data-v="sum">k₁ + k₂ = λ</button><button data-v="opp">过 A 的弦</button></div>
+    <div class="row" id="rowL">λ <input type="range" id="lam" min="-4" max="4" step="0.25" value="1"><span class="val" id="lamv"></span></div>
+    <div class="row"><label class="chk"><input type="checkbox" id="family" checked> 显示一族直线 PQ</label></div>
+
+    <h2>高考题型</h2>
+    <div class="grid" id="presets"></div>
+
+    <h2>分析（随拖动实时更新）</h2>
+    <div class="chain" id="chain"></div>
+
+    <h2>常用结论</h2>
+    <details open>
+      <summary>拖一拖，验证这些结论</summary>
+      <ul>
+        <li>椭圆 x²/a² + y²/b² = 1 的顶点 A(a, 0)，AP ⊥ AQ ⇒ PQ 过定点 (a(a² − b²)/(a² + b²), 0)。</li>
+        <li>抛物线 y² = 2px 上一点 A(x₀, y₀)，AP ⊥ AQ ⇒ PQ 过定点 (x₀ + 2p, −y₀)；A 为原点时定点是 (2p, 0)。</li>
+        <li>A 在曲线上且 k₁ + k₂ = 0 ⇒ PQ 斜率为定值：椭圆 b²x₀/(a²y₀)，抛物线 −p/y₀。</li>
+        <li>椭圆 OP ⊥ OQ ⇒ 1/|OP|² + 1/|OQ|² = 1/a² + 1/b²，O 到 PQ 的距离为定值 ab/√(a² + b²)。</li>
+        <li>焦点弦：抛物线 1/|FP| + 1/|FQ| = 2/p；椭圆 1/|FP| + 1/|FQ| = 2a/b²。</li>
+        <li>做题顺序：先用特殊位置（如 PQ ⊥ x 轴）猜出定点或定值，再设直线 x = my + t 联立，用韦达定理证明。</li>
+      </ul>
+    </details>
+  </aside>
+</div>
+
+<script src="../assets/lab.js"></script>
+<script src="../assets/plane.js"></script>
+<script>
+const { $, num } = Lab;
+const st = { type: 'ellipse', a2: 4, b2: 1, p: 2, base: 'curve', tA: 180, cond: 'perp', lam: 1, th: 0.9, family: true };
+
+function geo() {
+  const { type, a2, b2, p } = st, a = Math.sqrt(a2), b = Math.sqrt(b2);
+  if (type === 'ellipse') { const c = Math.sqrt(Math.abs(a2 - b2)); return { a, b, c, K: [1 / a2, 1 / b2, 0, 0, -1], F: a2 >= b2 ? [c, 0] : [0, c] }; }
+  if (type === 'hyper') { const c = Math.sqrt(a2 + b2); return { a, b, c, K: [1 / a2, -1 / b2, 0, 0, -1], F: [c, 0] }; }
+  return { p, K: [0, 1, -2 * p, 0, 0], F: [p / 2, 0] };
+}
+const val = (K, [x, y]) => K[0] * x * x + K[1] * y * y + K[2] * x + K[3] * y + K[4];
+
+function pointA() {
+  const g = geo();
+  if (st.base === 'O') return [0, 0];
+  if (st.base === 'F') return g.F;
+  const t = st.tA * Math.PI / 180;
+  if (st.type === 'ellipse') return [g.a * Math.cos(t), g.b * Math.sin(t)];
+  if (st.type === 'hyper') return [g.a / Math.cos(t), g.b * Math.tan(t)];
+  return [st.tA * st.tA / (2 * st.p), st.tA];
+}
+
+// 从 A 沿方向角 th 出发与曲线的另一个交点
+function hit(A, th, onCurve) {
+  const K = geo().K, c = Math.cos(th), s = Math.sin(th);
+  const q2 = K[0] * c * c + K[1] * s * s, q1 = 2 * K[0] * A[0] * c + K[2] * c + 2 * K[1] * A[1] * s + K[3] * s, q0 = val(K, A);
+  let ts = Math.abs(q2) < 1e-12 ? (Math.abs(q1) < 1e-12 ? [] : [-q0 / q1]) : Plane.quad(q2, q1, q0);
+  ts = ts.filter(t => Math.abs(t) > 1e-7);
+  if (!onCurve) ts = ts.filter(t => t > 0);
+  if (!ts.length) return null;
+  const t = onCurve ? ts[0] : Math.max(...ts);
+  return Math.abs(t) > 1e4 ? null : [A[0] + t * c, A[1] + t * s];
+}
+
+function dirs(th) {
+  const k1 = Math.tan(th);
+  if (st.cond === 'perp') return [th, th + Math.PI / 2];
+  if (st.cond === 'opp') return [th, th + Math.PI];
+  if (Math.abs(Math.cos(th)) < 1e-9 || Math.abs(k1) < 1e-9) return null;
+  const k2 = st.cond === 'prod' ? st.lam / k1 : st.lam - k1;
+  return [th, Math.atan(k2)];
+}
+
+function pair(th) {
+  const A = pointA(), on = Math.abs(val(geo().K, A)) < 1e-9, d = dirs(th);
+  if (!d) return null;
+  const P = hit(A, d[0], on), Q = hit(A, d[1], on);
+  if (!P || !Q) return null;
+  const far = (u, v) => Math.hypot(u[0] - v[0], u[1] - v[1]) > 1e-6;
+  if (!far(P, A) || !far(Q, A) || !far(P, Q)) return null;
+  return { A, P, Q };
+}
+
+function cross2(L1, L2) {
+  const [p, q] = [L1.P, L1.Q], [r, s] = [L2.P, L2.Q];
+  const d1 = [q[0] - p[0], q[1] - p[1]], d2 = [s[0] - r[0], s[1] - r[1]], den = d1[0] * d2[1] - d1[1] * d2[0];
+  if (Math.abs(den) < 1e-9 * Math.hypot(...d1) * Math.hypot(...d2)) return null;
+  const t = ((r[0] - p[0]) * d2[1] - (r[1] - p[1]) * d2[0]) / den;
+  return [p[0] + t * d1[0], p[1] + t * d1[1]];
+}
+
+// 让 P 取多个位置，检查哪些量不变
+function invariants() {
+  const samples = [0.37, 0.81, 1.23, 2.05, 2.71, 3.6, 4.4, 5.3].map(pair).filter(Boolean);
+  if (samples.length < 3) return {};
+  const same = arr => { const m = arr.reduce((s, v) => s + v, 0) / arr.length; return arr.every(v => Math.abs(v - m) < 1e-6 * (1 + Math.abs(m))) ? m : null; };
+  const out = {};
+  const xs = [];
+  for (let i = 0; i + 1 < samples.length; i++) { const X = cross2(samples[i], samples[i + 1]); if (X) xs.push(X); }
+  if (xs.length >= 2 && xs.length === samples.length - 1) {
+    const fx = same(xs.map(v => v[0])), fy = same(xs.map(v => v[1]));
+    const A = samples[0].A;
+    if (fx !== null && fy !== null && Math.hypot(fx - A[0], fy - A[1]) > 1e-6) out.point = [fx, fy];
+  }
+  const slope = s => (s.Q[1] - s.P[1]) / (s.Q[0] - s.P[0]);
+  const d = (u, v) => Math.hypot(u[0] - v[0], u[1] - v[1]);
+  const distLine = s => Math.abs((s.Q[0] - s.P[0]) * (s.P[1] - s.A[1]) - (s.Q[1] - s.P[1]) * (s.P[0] - s.A[0])) / d(s.P, s.Q);
+  const k = same(samples.map(slope).filter(Number.isFinite)); if (k !== null && !out.point) out.slope = k;
+  const dl = same(samples.map(distLine)); if (dl !== null && dl > 1e-6) out.dist = dl;
+  const inv1 = same(samples.map(s => 1 / d(s.A, s.P) + 1 / d(s.A, s.Q))); if (inv1 !== null) out.inv1 = inv1;
+  const inv2 = same(samples.map(s => 1 / d(s.A, s.P) ** 2 + 1 / d(s.A, s.Q) ** 2)); if (inv2 !== null) out.inv2 = inv2;
+  const prod = same(samples.map(s => d(s.A, s.P) * d(s.A, s.Q))); if (prod !== null) out.prod = prod;
+  return out;
+}
+
+const P = Plane.plane($('cv'), {
+  xmin: -5, xmax: 5, ymin: -3, ymax: 3, draw,
+  pick(px, py, r) {
+    const cur = pair(st.th);
+    if (cur && P.near(px, py, cur.P[0], cur.P[1], r)) return { k: 'P' };
+    const A = pointA();
+    if (st.base === 'curve' && P.near(px, py, A[0], A[1], r)) return { k: 'A' };
+    return null;
+  },
+  move(o, x, y) {
+    const A = pointA();
+    if (o.k === 'P') st.th = Math.atan2(y - A[1], x - A[0]);
+    else {
+      const g = geo();
+      if (st.type === 'ellipse') st.tA = (Math.round(Math.atan2(y / g.b, x / g.a) * 180 / Math.PI / 5) * 5 + 360) % 360;
+      else if (st.type === 'hyper') st.tA = Math.max(-80, Math.min(80, Math.round(Math.atan(y / g.b) * 180 / Math.PI / 5) * 5));
+      else st.tA = Math.max(-4, Math.min(4, Math.round(y * 2) / 2));
+      Lab.setRange('tA', st.tA);
+    }
+    update();
+  },
+});
+
+function drawConic(P, g) {
+  const col = '#ea580c';
+  if (st.type === 'ellipse') P.curve(t => g.a * Math.cos(t), t => g.b * Math.sin(t), 0, 2 * Math.PI, 300, col, 2.6);
+  else if (st.type === 'hyper') {
+    [1, -1].forEach(s => P.curve(u => s * g.a * Math.cosh(u), u => g.b * Math.sinh(u), -3, 3, 300, col, 2.6));
+    P.line(0, 0, g.a, g.b, 'rgba(234,88,12,.35)', 1.2, [6, 5]); P.line(0, 0, g.a, -g.b, 'rgba(234,88,12,.35)', 1.2, [6, 5]);
+  } else P.curve(y => y * y / (2 * g.p), y => y, -12, 12, 300, col, 2.6);
+  P.pt(g.F[0], g.F[1], '#6b7280', 'F', { r: 3.5, size: 12 });
+}
+
+function draw(P) {
+  const g = geo();
+  P.grid();
+  drawConic(P, g);
+  const inv = invariants();
+  if (st.family) for (let i = 0; i < 48; i++) { const s = pair(0.013 + i * Math.PI / 24); if (s) P.line(s.P[0], s.P[1], s.Q[0] - s.P[0], s.Q[1] - s.P[1], 'rgba(100,116,139,.18)', 1); }
+  if (inv.dist) { const A = pointA(); P.circle(A[0], A[1], inv.dist, '#7c3aed', 1.6, [6, 4]); }
+  const cur = pair(st.th), A = pointA();
+  if (cur) {
+    P.line(cur.P[0], cur.P[1], cur.Q[0] - cur.P[0], cur.Q[1] - cur.P[1], '#dc2626', 2.4);
+    P.seg(A[0], A[1], cur.P[0], cur.P[1], '#2563eb', 2.2);
+    P.seg(A[0], A[1], cur.Q[0], cur.Q[1], '#16a34a', 2.2);
+    P.pt(cur.P[0], cur.P[1], '#2563eb', 'P', { r: 7 });
+    P.pt(cur.Q[0], cur.Q[1], '#16a34a', 'Q', { r: 6 });
+  }
+  P.pt(A[0], A[1], '#111827', 'A', { r: st.base === 'curve' ? 7 : 5, dx: -16 });
+  if (inv.point) P.pt(inv.point[0], inv.point[1], '#7c3aed', `定点 (${num(inv.point[0], 3)}, ${num(inv.point[1], 3)})`, { r: 7, dy: 18 });
+  const eq = { ellipse: `x²/${num(st.a2)} + y²/${num(st.b2)} = 1`, hyper: `x²/${num(st.a2)} − y²/${num(st.b2)} = 1`, parab: `y² = ${num(2 * st.p)}x` }[st.type];
+  P.corner(eq, '#ea580c');
+  if (!cur) P.corner('这个方向上找不到满足条件的 P、Q，换个位置拖动 P', '#b91c1c', 'left', 1);
+}
+
+// 已知结论的理论值，用来和数值结果对照
+function theory() {
+  const g = geo(), A = pointA(), on = st.base === 'curve' || (st.type === 'parab' && st.base === 'O');
+  const T = [];
+  if (st.cond === 'perp' && on && st.type === 'ellipse' && Math.abs(A[1]) < 1e-9)
+    T.push(`顶点 A(${num(A[0], 3)}, 0)：定点 x = ${A[0] > 0 ? '' : '−'}a(a² − b²)/(a² + b²) = ${num(A[0] * (st.a2 - st.b2) / (st.a2 + st.b2), 4)}`);
+  if (st.cond === 'perp' && on && st.type === 'ellipse' && Math.abs(A[0]) < 1e-9)
+    T.push(`顶点 A(0, ${num(A[1], 3)})：定点 y = ${A[1] > 0 ? '' : '−'}b(b² − a²)/(a² + b²) = ${num(A[1] * (st.b2 - st.a2) / (st.a2 + st.b2), 4)}`);
+  if (on && st.type === 'ellipse' && Math.abs(A[0]) < 1e-9 && st.cond === 'prod' && Math.abs(st.b2 - st.lam * st.a2) > 1e-9)
+    T.push(`A(0, y₀) 为顶点：定点 y = y₀(λa² + b²)/(b² − λa²) = ${num(A[1] * (st.lam * st.a2 + st.b2) / (st.b2 - st.lam * st.a2), 4)}`);
+  if (on && st.type === 'ellipse' && Math.abs(A[0]) < 1e-9 && st.cond === 'sum' && st.lam !== 0)
+    T.push(`A(0, y₀) 为顶点：定点 (−2y₀/λ, −y₀) = (${num(-2 * A[1] / st.lam, 4)}, ${num(-A[1], 4)})`);
+  if (st.cond === 'perp' && on && st.type === 'parab') T.push(`抛物线：定点 (x₀ + 2p, −y₀) = (${num(A[0] + 2 * st.p, 3)}, ${num(-A[1], 3)})`);
+  if (st.cond === 'sum' && st.lam === 0 && on && Math.abs(A[1]) > 1e-9) {
+    if (st.type === 'ellipse') T.push(`k₁ + k₂ = 0：PQ 斜率 = b²x₀/(a²y₀) = ${num(st.b2 * A[0] / (st.a2 * A[1]), 4)}`);
+    if (st.type === 'hyper') T.push(`k₁ + k₂ = 0：PQ 斜率 = −b²x₀/(a²y₀) = ${num(-st.b2 * A[0] / (st.a2 * A[1]), 4)}`);
+    if (st.type === 'parab') T.push(`k₁ + k₂ = 0：PQ 斜率 = −p/y₀ = ${num(-st.p / A[1], 4)}`);
+  }
+  if (st.cond === 'perp' && st.base === 'O' && st.type === 'ellipse')
+    T.push(`OP ⊥ OQ：1/a² + 1/b² = ${num(1 / st.a2 + 1 / st.b2, 4)}，距离 ab/√(a² + b²) = ${num(Math.sqrt(st.a2 * st.b2 / (st.a2 + st.b2)), 4)}`);
+  if (st.cond === 'opp' && st.base === 'F') {
+    if (st.type === 'parab') T.push(`抛物线焦点弦：2/p = ${num(2 / st.p, 4)}`);
+    if (st.type === 'ellipse' && st.a2 > st.b2) T.push(`椭圆焦点弦：2a/b² = ${num(2 * g.a / st.b2, 4)}`);
+  }
+  return T;
+}
+
+function update() { P.redraw(); panel(); }
+
+function panel() {
+  const g = geo(), cur = pair(st.th), A = pointA(), inv = invariants();
+  let h = '';
+  if (!cur) { $('chain').innerHTML = '<div class="node warn">当前方向没有满足条件的 P、Q（直线与曲线不相交或退化），拖动 P 换个方向。</div>'; return; }
+  const { P: p, Q: q } = cur, k1 = (p[1] - A[1]) / (p[0] - A[0]), k2 = (q[1] - A[1]) / (q[0] - A[0]);
+  const condText = {
+    perp: `AP·AQ = ${num((p[0] - A[0]) * (q[0] - A[0]) + (p[1] - A[1]) * (q[1] - A[1]), 4)}（= 0，垂直）`,
+    prod: `k₁·k₂ = ${num(k1, 3)} × ${num(k2, 3)} = ${num(k1 * k2, 4)}`,
+    sum: `k₁ + k₂ = ${num(k1, 3)} + ${num(k2, 3)} = ${num(k1 + k2, 4)}`,
+    opp: `P、A、Q 三点共线（过 A 的弦）`,
+  }[st.cond];
+  h += `<div class="node"><span class="f">① 条件</span><br><span class="v">A(${num(A[0], 3)}, ${num(A[1], 3)})，P(${num(p[0], 3)}, ${num(p[1], 3)})，Q(${num(q[0], 3)}, ${num(q[1], 3)})</span><br><span class="v">${condText}</span></div>`;
+  const K = g.K;
+  if (Math.abs(q[1] - p[1]) > 1e-9) {
+    const m = (q[0] - p[0]) / (q[1] - p[1]), t = p[0] - m * p[1];
+    const c2 = K[0] * m * m + K[1], c1 = 2 * K[0] * m * t + K[2] * m + K[3], c0 = K[0] * t * t + K[2] * t + K[4];
+    const sc = st.type === 'parab' ? 1 : st.a2 * st.b2;
+    h += `<div class="link">↓ 设直线 PQ：x = my + t（斜率不存在时也能表示）</div>`;
+    h += `<div class="node"><span class="f">② 直线 PQ</span><br><span class="v">x = ${num(m, 4)}y${Plane.signed(t, 4)}</span><br><span class="n">代入曲线方程${sc !== 1 ? '，两边乘以 a²b²' : ''}：</span><br><span class="v">${Plane.poly([c2 * sc, c1 * sc, c0 * sc], 'y', 3)} = 0</span><br><span class="v">y₁ + y₂ = ${num(-c1 / c2, 4)}，y₁y₂ = ${num(c0 / c2, 4)}</span><br><span class="n">把条件用 y₁ + y₂、y₁y₂ 表示，化简得到 m 与 t 的关系。</span></div>`;
+  }
+  const T = theory();
+  const found = [];
+  if (inv.point) found.push(`直线 PQ 恒过定点 <b>(${num(inv.point[0], 4)}, ${num(inv.point[1], 4)})</b>`);
+  if (inv.slope !== undefined) found.push(`直线 PQ 的斜率为定值 <b>${num(inv.slope, 4)}</b>`);
+  if (inv.dist) found.push(`A 到直线 PQ 的距离为定值 <b>${num(inv.dist, 4)}</b>（紫色圆与每条 PQ 相切）`);
+  if (inv.inv1 !== undefined) found.push(`1/|AP| + 1/|AQ| = <b>${num(inv.inv1, 4)}</b>`);
+  if (inv.inv2 !== undefined) found.push(`1/|AP|² + 1/|AQ|² = <b>${num(inv.inv2, 4)}</b>`);
+  if (inv.prod !== undefined) found.push(`|AP|·|AQ| = <b>${num(inv.prod, 4)}</b>`);
+  h += '<div class="link">↓ 让 P 取 8 个不同位置检验</div>';
+  h += found.length
+    ? `<div class="node ok"><span class="f">③ 结论</span><br>${found.map(s => `<span class="v">${s}</span>`).join('<br>')}${T.length ? `<br><span class="n">公式：${T.join('；')}</span>` : ''}</div>`
+    : `<div class="node warn"><span class="f">③ 这组条件下没有定点或定值</span><br><span class="n">灰色直线族不交于一点。换一个条件或 λ 再看。</span></div>`;
+  h += `<div class="node"><span class="f">做题思路：先猜后证</span><br><span class="n">先让 P 取特殊位置（如 PQ ⊥ x 轴、P 为顶点）求出两条直线的交点，猜出定点；再设 x = my + t 联立，用韦达定理代入条件，证明 t（或 m 与 t 的关系）是定值。</span></div>`;
+  $('chain').innerHTML = h;
+}
+
+const show = (id, on) => { $(id).style.display = on ? '' : 'none'; };
+function syncUI() {
+  const pb = st.type === 'parab';
+  show('rowA2', !pb); show('rowB2', !pb); show('rowP', pb);
+  show('rowT', st.base === 'curve'); show('rowL', st.cond === 'prod' || st.cond === 'sum');
+  const el = $('tA');
+  if (st.type === 'ellipse') { Object.assign(el, { min: 0, max: 355, step: 5 }); $('tLabel').textContent = 'A 的参数角 θ'; }
+  else if (st.type === 'hyper') { Object.assign(el, { min: -80, max: 80, step: 5 }); $('tLabel').textContent = 'A 的参数角 θ'; }
+  else { Object.assign(el, { min: -4, max: 4, step: 0.5 }); $('tLabel').textContent = 'A 的纵坐标 y₀'; }
+  Lab.setRange('tA', st.tA);
+  setType(st.type); setBase(st.base); setCond(st.cond);
+}
+function fit() {
+  const g = geo();
+  if (st.type === 'ellipse') P.setWindow(-g.a - 2, g.a + 2, -g.b - 1.5, g.b + 1.5);
+  else if (st.type === 'hyper') P.setWindow(-g.a - 4, g.a + 5, -4, 4);
+  else P.setWindow(-3, 10, -6, 6);
+}
+Lab.range('tA', v => st.type === 'parab' ? num(v) : `${v}°`, v => { st.tA = v; update(); });
+Lab.range('a2', v => num(v), v => { st.a2 = v; fit(); update(); });
+Lab.range('b2', v => num(v), v => { st.b2 = v; fit(); update(); });
+Lab.range('p', v => num(v), v => { st.p = v; fit(); update(); });
+Lab.range('lam', v => num(v), v => { st.lam = v; update(); });
+const setType = Lab.seg('type', v => { st.type = v; st.tA = v === 'ellipse' ? 180 : v === 'hyper' ? 0 : 2; syncUI(); fit(); update(); });
+const setBase = Lab.seg('base', v => { st.base = v; syncUI(); update(); });
+const setCond = Lab.seg('cond', v => { st.cond = v; syncUI(); update(); });
+$('family').addEventListener('change', e => { st.family = e.target.checked; P.redraw(); });
+
+function apply(o) {
+  Object.assign(st, { th: 0.9 }, o);
+  ['a2', 'b2', 'p', 'lam'].forEach(k => Lab.setRange(k, st[k]));
+  syncUI(); fit(); update();
+}
+Lab.presets('presets', [
+  ['椭圆左顶点 A，AP ⊥ AQ', () => apply({ type: 'ellipse', a2: 4, b2: 1, base: 'curve', tA: 180, cond: 'perp' })],
+  ['椭圆上顶点 A，k₁·k₂ 为定值', () => apply({ type: 'ellipse', a2: 4, b2: 1, base: 'curve', tA: 90, cond: 'prod', lam: 1 })],
+  ['k₁ + k₂ = 0：PQ 斜率为定值', () => apply({ type: 'ellipse', a2: 4, b2: 3, base: 'curve', tA: 60, cond: 'sum', lam: 0, th: 0.5 })],
+  ['椭圆上顶点 A，k₁ + k₂ = 2', () => apply({ type: 'ellipse', a2: 4, b2: 1, base: 'curve', tA: 90, cond: 'sum', lam: 2, th: 0.3 })],
+  ['抛物线 OA ⊥ OB 过 (2p, 0)', () => apply({ type: 'parab', p: 2, base: 'O', cond: 'perp' })],
+  ['抛物线上一点 A，AP ⊥ AQ', () => apply({ type: 'parab', p: 2, base: 'curve', tA: 2, cond: 'perp', th: 0.4 })],
+  ['定值：椭圆 OP ⊥ OQ', () => apply({ type: 'ellipse', a2: 4, b2: 3, base: 'O', cond: 'perp' })],
+  ['定值：抛物线焦点弦', () => apply({ type: 'parab', p: 2, base: 'F', cond: 'opp' })],
+  ['定值：椭圆焦点弦', () => apply({ type: 'ellipse', a2: 4, b2: 3, base: 'F', cond: 'opp' })],
+  ['双曲线右顶点 A，AP ⊥ AQ', () => apply({ type: 'hyper', a2: 1, b2: 3, base: 'curve', tA: 0, cond: 'perp', th: 0.5 })],
+]);
+apply({});
+</script>
+</body>
+</html>

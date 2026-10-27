@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>三角函数 y = A sin(ωx + φ) · 交互实验</title>
+<link rel="stylesheet" href="../assets/lab.css">
+</head>
+<body>
+<div id="top"><a href="../index.html">← 知识地图</a><b>三角函数 y = A sin(ωx + φ) + B</b><span class="crumb">必修第一册 · 第五章 三角函数</span></div>
+<div id="app">
+  <div id="left">
+    <div class="stage"><canvas id="cv"></canvas><div class="hint">左边单位圆上的点转一圈，右边的图像走一个周期；空白处拖动移动视野，滚轮缩放</div></div>
+  </div>
+  <aside id="panel">
+    <div class="tip"><b>A</b> 管振幅（最高最低），<b>ω</b> 管周期 T = 2π/ω，<b>φ</b> 管左右位置，<b>B</b> 管上下位置。从 sin x 变过来有两种顺序：<b>先平移 |φ| 再伸缩</b>，或<b>先伸缩再平移 |φ/ω|</b>。</div>
+
+    <h2>参数</h2>
+    <div class="row">A <input type="range" id="A" min="0.5" max="3" step="0.5" value="2"><span class="val" id="Av"></span></div>
+    <div class="row">ω <input type="range" id="w" min="0.5" max="4" step="0.5" value="2"><span class="val" id="wv"></span></div>
+    <div class="row">φ <input type="range" id="phi" min="-12" max="12" step="1" value="4"><span class="val" id="phiv"></span></div>
+    <div class="row">B <input type="range" id="B" min="-2" max="2" step="0.5" value="0"><span class="val" id="Bv"></span></div>
+    <div class="row"><button class="primary" id="play" style="flex:1">⏸ 暂停转动</button></div>
+
+    <h2>从 y = sin x 一步步变过来</h2>
+    <div class="seg" id="order"><button data-v="shift" class="on">先平移后伸缩</button><button data-v="scale">先伸缩后平移</button></div>
+    <div class="row">步骤 <input type="range" id="step" min="0" max="4" step="1" value="4"><span class="val" id="stepv"></span></div>
+    <div class="chain" id="steps"></div>
+
+    <h2>高考题型</h2>
+    <div class="grid" id="presets"></div>
+    <div id="quiz"></div>
+
+    <h2>性质（k ∈ Z）</h2>
+    <div class="chain" id="props"></div>
+
+    <h2>常用结论</h2>
+    <details open>
+      <summary>拖一拖，验证这些结论</summary>
+      <ul>
+        <li>对称轴过最高点或最低点：令 ωx + φ = π/2 + kπ；对称中心是零点：令 ωx + φ = kπ，中心纵坐标是 B。</li>
+        <li>相邻两条对称轴相距 T/2，对称轴与相邻对称中心相距 T/4。</li>
+        <li>求单调增区间：令 −π/2 + 2kπ ≤ ωx + φ ≤ π/2 + 2kπ（ω > 0 时）。ω < 0 要先用诱导公式化成正的。</li>
+        <li>由图求 φ：代入最高点 ωx₀ + φ = π/2 + 2kπ，再结合 |φ| 的范围取值；代零点容易分不清是"上升零点"还是"下降零点"。</li>
+        <li>y = sin(ωx + φ) 是奇函数 ⇔ φ = kπ；是偶函数 ⇔ φ = π/2 + kπ。</li>
+      </ul>
+    </details>
+  </aside>
+</div>
+
+<script src="../assets/lab.js"></script>
+<script src="../assets/plane.js"></script>
+<script>
+const { $, fmt, num, pi } = Lab;
+const PI = Math.PI;
+const st = { A: 2, w: 2, phi: PI / 3, B: 0, t: 0, step: 4, order: 'shift', quiz: null };
+const sinStr = s => `sin(${s})`;
+const phiStr = phi => (phi === 0 ? '' : phi > 0 ? ` + ${pi(phi)}` : ` − ${pi(-phi)}`);
+const wx = w => (w === 1 ? 'x' : `${num(w)}x`);
+
+function stages() {
+  const { A, w, phi, B } = st;
+  const s0 = { f: x => Math.sin(x), eq: 'y = sin x', desc: '出发：y = sin x' };
+  const s3 = { f: x => A * Math.sin(w * x + phi), eq: `y = ${A === 1 ? '' : num(A)}sin(${wx(w)}${phiStr(phi)})`, desc: `纵坐标变为原来的 ${num(A)} 倍（振幅 ${num(A)}）` };
+  const s4 = { f: x => A * Math.sin(w * x + phi) + B, eq: `y = ${A === 1 ? '' : num(A)}sin(${wx(w)}${phiStr(phi)})${B ? (B > 0 ? ` + ${num(B)}` : ` − ${num(-B)}`) : ''}`, desc: B === 0 ? '不上下平移' : `向${B > 0 ? '上' : '下'}平移 ${num(Math.abs(B))} 个单位` };
+  const dir = v => (v > 0 ? '左' : '右');
+  if (st.order === 'shift') return [s0,
+    { f: x => Math.sin(x + phi), eq: `y = sin(x${phiStr(phi)})`, desc: phi === 0 ? '不平移' : `向${dir(phi)}平移 |φ| = ${pi(Math.abs(phi))} 个单位` },
+    { f: x => Math.sin(w * x + phi), eq: `y = sin(${wx(w)}${phiStr(phi)})`, desc: `横坐标变为原来的 1/ω = ${num(1 / w, 3)} 倍` },
+    s3, s4];
+  return [s0,
+    { f: x => Math.sin(w * x), eq: `y = sin ${wx(w)}`, desc: `横坐标变为原来的 1/ω = ${num(1 / w, 3)} 倍` },
+    { f: x => Math.sin(w * x + phi), eq: `y = sin[${num(w)}(x${phiStr(phi / w)})]`, desc: phi === 0 ? '不平移' : `向${dir(phi)}平移 |φ/ω| = ${pi(Math.abs(phi / w))} 个单位（不是 ${pi(Math.abs(phi))}！）` },
+    s3, s4];
+}
+
+const P = Plane.plane($('cv'), { xmin: -6, xmax: 13, ymin: -4.6, ymax: 4.6, piX: true, draw });
+
+function draw(P) {
+  const { A, w, phi, B } = st, S = stages(), f = S[4].f;
+  P.grid();
+  if (st.quiz) drawQuiz(P);
+  if (st.step < 4) {
+    P.fn(S[4].f, '#e5e7eb', 1.5, [4, 4]);
+    if (st.step > 0) P.fn(S[st.step - 1].f, '#9ca3af', 1.8, [6, 5]);
+    P.fn(S[st.step].f, '#0d9488', 3);
+    P.corner(S[st.step].eq, '#0d9488');
+    P.corner(`第 ${st.step} 步：${S[st.step].desc}`, '#6b7280', 'left', 1);
+    return;
+  }
+  // 对称轴、对称中心
+  const T = 2 * PI / w, v = P.vis();
+  const x0 = (PI / 2 - phi) / w;
+  for (let k = Math.floor((v.x0 - x0) / (T / 2)) - 1; x0 + k * T / 2 < v.x1; k++) {
+    const x = x0 + k * T / 2;
+    P.line(x, 0, 0, 1, 'rgba(220,38,38,.35)', 1.2, [6, 5]);
+    P.pt(x + T / 4, B, '#dc2626', null, { r: 3.5 });
+  }
+  if (!st.quiz) {
+    // 五点作图（从 ωx + φ = 0 开始的一个周期）
+    const xs = -phi / w;
+    [0, 1, 2, 3, 4].forEach(i => { const x = xs + i * T / 4; P.pt(x, f(x), '#7c3aed', i === 0 ? '五点作图起点' : null, { r: 4.5, size: 11 }); });
+  }
+  P.fn(f, '#0d9488', 3);
+  P.pt(st.t, f(st.t), '#f59e0b', `(${num(st.t, 2)}, ${num(f(st.t), 2)})`, { size: 12 });
+  drawCircle(P, f);
+  P.corner(S[4].eq, '#0d9488');
+  P.corner(`T = 2π/ω = ${pi(T)}　最大值 ${num(A + B)}　最小值 ${num(B - A)}`, '#6b7280', 'left', 1);
+}
+
+// 左侧小窗：半径为 A 的圆，纵向比例与坐标系相同，点的高度就是函数值
+function drawCircle(P, f) {
+  const { A, w, phi, B } = st, c = P.ctx, R = A * P.ky, cx = 24 + R, cy = P.Y(B);
+  const th = w * st.t + phi, qx = cx + R * Math.cos(th), qy = cy - R * Math.sin(th);
+  c.save();
+  c.fillStyle = 'rgba(255,255,255,.94)'; c.strokeStyle = '#e5e7eb';
+  c.fillRect(0, cy - R - 34, 2 * R + 48, 2 * R + 72); c.strokeRect(0, cy - R - 34, 2 * R + 48, 2 * R + 72);
+  c.restore();
+  Lab.line(c, cx - R - 12, cy, cx + R + 12, cy, '#cbd5e1', 1);
+  c.beginPath(); c.arc(cx, cy, R, 0, 2 * Math.PI); c.strokeStyle = '#94a3b8'; c.lineWidth = 1.4; c.stroke();
+  const a = ((th % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+  c.beginPath(); c.arc(cx, cy, Math.min(22, R * 0.4), 0, -a, true); c.strokeStyle = '#7c3aed'; c.lineWidth = 1.6; c.stroke();
+  Lab.line(c, cx, cy, qx, qy, '#0d9488', 2.2);
+  Lab.line(c, qx, cy, qx, qy, '#0d9488', 1, [3, 3]);
+  Lab.line(c, qx, qy, P.X(st.t), P.Y(f(st.t)), '#f59e0b', 1.4, [5, 4]);
+  Lab.dot(c, qx, qy, 5, '#0d9488');
+  Lab.text(c, `角 ωx + φ = ${num(th, 2)}`, cx, cy + R + 18, '#0d9488', { size: 12, bold: true });
+  Lab.text(c, `半径 A = ${num(A)}`, cx, cy - R - 18, '#6b7280', { size: 12 });
+}
+
+function drawQuiz(P) {
+  const q = st.quiz, g = x => q.A * Math.sin(q.w * x + q.phi);
+  P.fn(g, 'rgba(220,38,38,.75)', 4);
+  const T = 2 * PI / q.w;
+  let xm = (PI / 2 - q.phi) / q.w;
+  while (xm < 0) xm += T;
+  while (xm - T >= 0) xm -= T;
+  const xz = xm + T / 4;
+  P.pt(xm, q.A, '#dc2626', `(${pi(xm)}, ${num(q.A)})`, { size: 12 });
+  P.pt(xz, 0, '#dc2626', `(${pi(xz)}, 0)`, { size: 12, dy: 16 });
+  P.line(xm, 0, 0, 1, 'rgba(220,38,38,.4)', 1, [3, 4]);
+}
+
+function updatePanel() {
+  const { A, w, phi, B } = st, S = stages();
+  $('steps').innerHTML = S.map((s, i) => `${i ? '<div class="link">↓</div>' : ''}<div class="node ${i === st.step ? 'ok' : ''}"><span class="f">${s.eq}</span><br><span class="n">${s.desc}</span></div>`).join('');
+  const T = 2 * PI / w, half = PI / w;
+  const kterm = (x, d) => `${pi(x)} + k·${pi(d)}`;
+  let p = `<div class="node"><span class="f">周期</span> T = 2π/ω = <span class="v">${pi(T)}</span></div>`;
+  p += `<div class="node"><span class="f">对称轴（红虚线）</span>：令 ωx + φ = π/2 + kπ<br><span class="v">x = ${kterm((PI / 2 - phi) / w, half)}</span></div>`;
+  p += `<div class="node"><span class="f">对称中心（红点）</span>：令 ωx + φ = kπ<br><span class="v">(${kterm(-phi / w, half)}, ${num(B)})</span></div>`;
+  p += `<div class="node"><span class="f">单调递增区间</span>：−π/2 + 2kπ ≤ ωx + φ ≤ π/2 + 2kπ<br><span class="v">[${kterm((-PI / 2 - phi) / w, T)}, ${kterm((PI / 2 - phi) / w, T)}]</span></div>`;
+  p += `<div class="node"><span class="f">单调递减区间</span><br><span class="v">[${kterm((PI / 2 - phi) / w, T)}, ${kterm((3 * PI / 2 - phi) / w, T)}]</span></div>`;
+  const r = phi / PI;
+  const par = Math.abs(r - Math.round(r)) < 1e-9 ? (B === 0 ? '奇函数（φ = kπ 且 B = 0）' : '图像关于 y 轴上某点中心对称，但 B ≠ 0，不是奇函数')
+    : Math.abs(r - 0.5 - Math.round(r - 0.5)) < 1e-9 ? '偶函数（φ = π/2 + kπ）' : '非奇非偶';
+  p += `<div class="node"><span class="f">奇偶性</span>：${par}</div>`;
+  $('props').innerHTML = p;
+  if (st.quiz) {
+    const q = st.quiz, ok = A === q.A && w === q.w && Math.abs(phi - q.phi) < 1e-9 && B === 0;
+    $('quiz').innerHTML = `<div class="node ${ok ? 'ok' : 'warn'}" style="margin-top:8px"><span class="f">${ok ? '✓ 完全重合，答对了！' : '调参数，让青色曲线和红色曲线重合（|φ| < π，B = 0）'}</span><br><span class="n">
+      ① 最高点纵坐标 → A；② 最高点到相邻零点的水平距离是 T/4 → ω = 2π/T；③ 把最高点代入 ωx + φ = π/2 + 2kπ → φ。</span>
+      ${ok ? `<br><span class="v">y = ${q.A === 1 ? '' : num(q.A)}sin(${wx(q.w)}${phiStr(q.phi)})</span>` : ''}
+      <br><button id="quitQuiz" style="margin-top:6px">结束练习</button></div>`;
+    $('quitQuiz').addEventListener('click', () => { st.quiz = null; render(); });
+  } else $('quiz').innerHTML = '';
+}
+
+function render() { P.redraw(); updatePanel(); }
+
+const anim = Lab.loop(dt => {
+  const T = 2 * PI / st.w, start = -st.phi / st.w;
+  st.t += dt * T / 4;
+  if (st.t > start + 2 * T || st.t < start) st.t = start;
+  P.redraw();
+});
+$('play').addEventListener('click', () => {
+  if (anim.on) { anim.stop(); $('play').textContent = '▶ 继续转动'; } else { anim.start(); $('play').textContent = '⏸ 暂停转动'; }
+});
+
+Lab.range('A', v => num(v), v => { st.A = v; render(); });
+Lab.range('w', v => num(v), v => { st.w = v; render(); });
+Lab.range('phi', v => pi(v * PI / 12), v => { st.phi = v * PI / 12; render(); });
+Lab.range('B', v => num(v), v => { st.B = v; render(); });
+Lab.range('step', v => `第 ${v} 步`, v => { st.step = v; render(); });
+const setOrder = Lab.seg('order', v => { st.order = v; render(); });
+
+function apply(o) {
+  Object.assign(st, o);
+  Lab.setRange('A', st.A); Lab.setRange('w', st.w); Lab.setRange('phi', Math.round(st.phi / (PI / 12))); Lab.setRange('B', st.B); Lab.setRange('step', st.step);
+  setOrder(st.order);
+  render();
+}
+const QA = [1, 1.5, 2, 3], QW = [0.5, 1, 2, 3], QP = [-4, -3, -2, 2, 3, 4, 6, 8, 9, 10];
+const pick = a => a[Math.floor(Math.random() * a.length)];
+Lab.presets('presets', [
+  ['先平移后伸缩（逐步）', () => apply({ A: 1, w: 2, phi: PI / 3, B: 0, step: 0, order: 'shift', quiz: null })],
+  ['先伸缩后平移（逐步）', () => apply({ A: 1, w: 2, phi: PI / 3, B: 0, step: 0, order: 'scale', quiz: null })],
+  ['求单调区间与对称轴', () => apply({ A: 2, w: 2, phi: -PI / 6, B: 0, step: 4, quiz: null })],
+  ['cos x = sin(x + π/2)', () => apply({ A: 1, w: 1, phi: PI / 2, B: 0, step: 4, quiz: null })],
+  ['奇函数：φ = kπ', () => apply({ A: 1.5, w: 2, phi: PI, B: 0, step: 4, quiz: null })],
+  ['由图求解析式（随机出题）', () => apply({ A: 1, w: 1, phi: 0, B: 0, step: 4, quiz: { A: pick(QA), w: pick(QW), phi: pick(QP) * PI / 12 } })],
+]);
+$('stepv').parentElement.insertAdjacentHTML('beforeend', '<button id="next">下一步 ›</button>');
+$('next').addEventListener('click', () => { st.step = (st.step + 1) % 5; Lab.setRange('step', st.step); render(); });
+st.t = -st.phi / st.w;
+render();
+anim.start();
+</script>
+</body>
+</html>

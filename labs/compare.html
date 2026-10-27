@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>比较大小与切线放缩 · 交互实验</title>
+<link rel="stylesheet" href="../assets/lab.css">
+</head>
+<body>
+<div id="top"><a href="../index.html">← 知识地图</a><b>比较大小与切线放缩</b><span class="crumb">必修第一册 · 第四章 指数函数与对数函数 / 选择性必修第二册 · 第五章 导数</span></div>
+<div id="app">
+  <div id="left">
+    <div class="stage"><canvas id="cv"></canvas><div class="hint" id="hint"></div></div>
+    <div class="chartWrap" id="wrap2" style="display:none"><canvas id="cv2"></canvas></div>
+  </div>
+  <aside id="panel">
+    <div class="tip" id="tip"></div>
+
+    <h2>方法</h2>
+    <div class="seg" id="mode"><button data-v="line" class="on">同一个 x 比函数值</button><button data-v="lnx">构造 ln x / x</button><button data-v="bound">切线放缩</button></div>
+
+    <div id="ctlLine">
+      <div class="row">a = <select id="f0"></select></div>
+      <div class="row">b = <select id="f1"></select></div>
+      <div class="row">c = <select id="f2"></select></div>
+      <div class="row">x₀ <input type="range" id="x0" min="-2" max="4" step="0.01" value="0.3"><span class="val" id="x0v"></span></div>
+      <div class="row"><button id="zoom" class="primary" style="flex:1">放大到 x₀ 附近</button><button id="home">复位视野</button></div>
+    </div>
+    <div id="ctlLnx" style="display:none">
+      <div class="row">x₁ <input type="range" id="u1" min="0.5" max="12" step="any" value="2.718281828"><span class="val" id="u1v"></span></div>
+      <div class="row">x₂ <input type="range" id="u2" min="0.5" max="12" step="any" value="3.141592654"><span class="val" id="u2v"></span></div>
+      <div class="row"><label class="chk"><input type="checkbox" id="use3"> 第三个点 x₃</label><input type="range" id="u3" min="0.5" max="12" step="any" value="5"><span class="val" id="u3v"></span></div>
+    </div>
+    <div id="ctlBound" style="display:none">
+      <div class="row"><select id="ineq" style="width:100%"></select></div>
+      <div class="row">x <input type="range" id="bx" min="-2" max="4" step="0.01" value="0.5"><span class="val" id="bxv"></span></div>
+    </div>
+
+    <h2>高考题型</h2>
+    <div class="grid" id="presets"></div>
+
+    <h2>分析</h2>
+    <div class="chain" id="chain"></div>
+
+    <h2>常用结论</h2>
+    <details open>
+      <summary>拖一拖，验证这些结论</summary>
+      <ul>
+        <li>比大小先找中间量 0、1（如 log₂0.3 < 0 < 0.3² < 1 < 2⁰·³），再看单调性。</li>
+        <li>几个数"长得像"时，把它们看成同一个函数在同一点的值，或者不同函数在同一个 x 处的值，再构造差函数求导。</li>
+        <li>f(x) = ln x / x 在 (0, e) 增、(e, +∞) 减，最大值 1/e；a<sup>b</sup> 与 b<sup>a</sup> 比较 ⇔ ln a / a 与 ln b / b 比较。2⁴ = 4²。</li>
+        <li>切线放缩：eˣ ≥ x + 1，ln x ≤ x − 1，eˣ ≥ ex，ln x ≤ x/e，ln x ≥ 1 − 1/x，等号都在切点处成立。</li>
+        <li>x 很小时：eˣ − 1 ≈ x ≈ ln(1 + x) ≈ sin x，需要更精细的比较时，构造函数 h(x) = 两式之差，看 h(0) = 0 与 h′ 的符号。</li>
+      </ul>
+    </details>
+  </aside>
+</div>
+
+<script src="../assets/lab.js"></script>
+<script src="../assets/plane.js"></script>
+<script>
+const { $, num } = Lab;
+const COL = ['#2563eb', '#dc2626', '#16a34a'];
+const s = v => num(v, 4);
+const nm = v => Math.abs(v - Math.E) < 1e-6 ? 'e' : Math.abs(v - Math.PI) < 1e-6 ? 'π' : num(v, 4);
+const FN = {
+  pow2: { n: '2ˣ', f: x => 2 ** x, e: x => `2<sup>${s(x)}</sup>` },
+  pow3: { n: '3ˣ', f: x => 3 ** x, e: x => `3<sup>${s(x)}</sup>` },
+  half: { n: '(1/2)ˣ', f: x => 0.5 ** x, e: x => `(1/2)<sup>${s(x)}</sup>` },
+  sq: { n: 'x²', f: x => x * x, e: x => `${s(x)}²` },
+  cube: { n: 'x³', f: x => x ** 3, e: x => `${s(x)}³` },
+  sqrt: { n: '√x', f: x => Math.sqrt(x), e: x => `√${s(x)}` },
+  log2: { n: 'log₂x', f: x => Math.log2(x), e: x => `log₂${s(x)}` },
+  log3: { n: 'log₃x', f: x => Math.log(x) / Math.log(3), e: x => `log₃${s(x)}` },
+  lnx: { n: 'ln x', f: Math.log, e: x => `ln ${s(x)}` },
+  xex: { n: 'x·eˣ', f: x => x * Math.exp(x), e: x => `${s(x)}e<sup>${s(x)}</sup>` },
+  x1x: { n: 'x/(1 − x)', f: x => x / (1 - x), e: x => `${s(x)}/${s(1 - x)}` },
+  nl1x: { n: '−ln(1 − x)', f: x => -Math.log(1 - x), e: x => `−ln ${s(1 - x)}` },
+  ln2a: { n: '2ln(1 + x)', f: x => 2 * Math.log(1 + x), e: x => `2ln ${s(1 + x)}` },
+  ln12: { n: 'ln(1 + 2x)', f: x => Math.log(1 + 2 * x), e: x => `ln ${s(1 + 2 * x)}` },
+  sq14: { n: '√(1 + 4x) − 1', f: x => Math.sqrt(1 + 4 * x) - 1, e: x => `√${s(1 + 4 * x)} − 1` },
+  ex1: { n: 'eˣ − 1', f: x => Math.exp(x) - 1, e: x => `e<sup>${s(x)}</sup> − 1` },
+  ln1x: { n: 'ln(1 + x)', f: x => Math.log(1 + x), e: x => `ln ${s(1 + x)}` },
+  x: { n: 'x', f: x => x, e: x => s(x) },
+  sin: { n: 'sin x', f: Math.sin, e: x => `sin ${s(x)}` },
+  tan: { n: 'tan x', f: Math.tan, e: x => `tan ${s(x)}` },
+};
+const BOUNDS = [
+  { n: 'eˣ ≥ x + 1', big: x => Math.exp(x), small: x => x + 1, bn: 'eˣ', sn: 'x + 1', t: 0, lo: -3, hi: 3, win: [-3, 3, -1.5, 5], use: 'e^0.1 > 1.1；e^(−0.1) > 0.9；把 eˣ 换成 x + 1 证明不等式' },
+  { n: 'ln x ≤ x − 1', big: x => x - 1, small: Math.log, bn: 'x − 1', sn: 'ln x', t: 1, lo: 0.05, hi: 5, win: [-0.5, 5, -3, 4], use: 'ln 1.1 < 0.1；ln 0.9 < −0.1，即 −ln 0.9 > 0.1' },
+  { n: 'eˣ ≥ ex', big: x => Math.exp(x), small: x => Math.E * x, bn: 'eˣ', sn: 'ex', t: 1, lo: -2, hi: 3, win: [-2, 3, -3, 10], use: 'y = ex 是 eˣ 过原点的切线；e^π > eπ' },
+  { n: 'ln x ≤ x/e', big: x => x / Math.E, small: Math.log, bn: 'x/e', sn: 'ln x', t: Math.E, lo: 0.05, hi: 8, win: [-0.5, 8, -2.5, 3], use: 'y = x/e 是 ln x 过原点的切线；ln π < π/e' },
+  { n: 'ln x ≥ 1 − 1/x', big: Math.log, small: x => 1 - 1 / x, bn: 'ln x', sn: '1 − 1/x', t: 1, lo: 0.15, hi: 6, win: [-0.3, 6, -4, 2.5], use: '与 ln x ≤ x − 1 合起来：1 − 1/x ≤ ln x ≤ x − 1' },
+  { n: 'ln(1 + x) ≤ x', big: x => x, small: x => Math.log(1 + x), bn: 'x', sn: 'ln(1 + x)', t: 0, lo: -0.95, hi: 3, win: [-1.2, 3, -2.5, 3], use: 'ln 1.01 < 0.01；数列求和放缩 ln(1 + 1/n) < 1/n' },
+  { n: 'sin x ≤ x（x ≥ 0）', big: x => x, small: Math.sin, bn: 'x', sn: 'sin x', t: 0, lo: 0, hi: 4, win: [-0.5, 4, -1.5, 4], use: 'sin 0.1 < 0.1；x > 0 时 sin x < x < tan x（x < π/2）' },
+  { n: 'eˣ ≥ 1 + x + x²/2（x ≥ 0）', big: x => Math.exp(x), small: x => 1 + x + x * x / 2, bn: 'eˣ', sn: '1 + x + x²/2', t: 0, lo: 0, hi: 2.5, win: [-0.5, 2.5, -0.5, 8], use: '比 eˣ ≥ x + 1 更精确的放缩（x ≥ 0）' },
+];
+const st = { mode: 'line', fns: ['pow2', 'sq', 'log2'], x0: 0.3, u: [Math.E, Math.PI, 5], use3: false, b: 0, bx: 0.5 };
+
+const P = Plane.plane($('cv'), { xmin: -1, xmax: 4, ymin: -2, ymax: 4, equal: false, draw, pick, move });
+const P2 = Plane.plane($('cv2'), { xmin: -3, xmax: 3, ymin: -0.5, ymax: 2, equal: false, draw: draw2, pan: false });
+
+function pick(px, py, r) {
+  if (st.mode === 'line' && Math.abs(px - P.X(st.x0)) < r) return { k: 'x0' };
+  if (st.mode === 'lnx') { const i = st.u.findIndex((u, i) => (i < 2 || st.use3) && P.near(px, py, u, Math.log(u) / u, r)); if (i >= 0) return { k: 'u', i }; }
+  if (st.mode === 'bound' && Math.abs(px - P.X(st.bx)) < r) return { k: 'bx' };
+  return null;
+}
+function move(o, x) {
+  if (o.k === 'x0') { st.x0 = Math.round(x * 1000) / 1000; Lab.setRange('x0', st.x0); }
+  if (o.k === 'u') { st.u[o.i] = Math.max(0.5, Math.min(12, x)); Lab.setRange('u' + (o.i + 1), st.u[o.i]); }
+  if (o.k === 'bx') { const B = BOUNDS[st.b]; st.bx = Math.max(B.lo, Math.min(B.hi, Math.round(x * 100) / 100)); Lab.setRange('bx', st.bx); }
+  update();
+}
+
+function draw(P) {
+  if (st.mode === 'line') {
+    P.grid();
+    P.line(0, 1, 1, 0, 'rgba(107,114,128,.35)', 1, [4, 4]);
+    st.fns.forEach((k, i) => P.fn(FN[k].f, COL[i], 2.4));
+    P.line(st.x0, 0, 0, 1, '#7c3aed', 1.6, [6, 4]);
+    st.fns.forEach((k, i) => { const y = FN[k].f(st.x0); if (Number.isFinite(y)) P.pt(st.x0, y, COL[i], 'abc'[i], { r: 5.5 }); });
+    st.fns.forEach((k, i) => P.corner(`${'abc'[i]}：y = ${FN[k].n}`, COL[i], 'left', i));
+  } else if (st.mode === 'lnx') {
+    P.grid();
+    const f = x => Math.log(x) / x;
+    P.fn(f, '#111827', 2.4, null, 0.3, 40);
+    P.pt(Math.E, 1 / Math.E, '#7c3aed', '最大值 (e, 1/e)', { r: 5, dy: 22 });
+    P.line(Math.E, 0, 0, 1, 'rgba(124,58,237,.3)', 1, [4, 4]);
+    st.u.forEach((u, i) => { if (i < 2 || st.use3) { P.line(0, f(u), 1, 0, COL[i] + '55', 1, [5, 4]); P.pt(u, f(u), COL[i], `x${Lab.sub(i + 1)} = ${nm(u).length > 5 ? num(u, 3) : nm(u)}`, { r: 7 }); } });
+    P.corner('f(x) = ln x / x', '#111827');
+  } else {
+    const B = BOUNDS[st.b];
+    P.grid();
+    P.band(B.big, B.small, B.lo, B.hi, 'rgba(234,88,12,.12)');
+    P.fn(B.big, '#2563eb', 2.6, null, B.lo, B.hi);
+    P.fn(B.small, '#dc2626', 2.6, null, B.lo, B.hi);
+    P.pt(B.t, B.big(B.t), '#7c3aed', `切点 (${num(B.t, 3)}, ${num(B.big(B.t), 3)})`, { r: 6 });
+    const yb = B.big(st.bx), ys = B.small(st.bx);
+    P.seg(st.bx, ys, st.bx, yb, '#ea580c', 3);
+    P.pt(st.bx, yb, '#2563eb', null, { r: 5 }); P.pt(st.bx, ys, '#dc2626', null, { r: 5 });
+    P.corner(`蓝：y = ${B.bn}`, '#2563eb', 'left', 0); P.corner(`红：y = ${B.sn}`, '#dc2626', 'left', 1);
+  }
+}
+function draw2(P2) {
+  if (st.mode !== 'bound') return;
+  const B = BOUNDS[st.b], h = x => B.big(x) - B.small(x);
+  P2.grid({ yl: 'h(x)' });
+  P2.fn(h, '#ea580c', 2.4, null, B.lo, B.hi);
+  P2.pt(B.t, 0, '#7c3aed', `最小值 h(${num(B.t, 3)}) = 0`, { r: 5 });
+  P2.pt(st.bx, h(st.bx), '#ea580c', null, { r: 5 });
+  P2.corner(`h(x) = ${B.bn} − (${B.sn}) ≥ 0`, '#ea580c');
+}
+
+function fitBound() {
+  const B = BOUNDS[st.b], h = x => B.big(x) - B.small(x);
+  P.setWindow(...B.win);
+  let mx = 0; for (let x = B.lo; x <= B.hi; x += (B.hi - B.lo) / 200) mx = Math.max(mx, h(x));
+  P2.setWindow(B.win[0], B.win[1], -Math.min(mx, 6) * 0.15, Math.min(mx, 6) * 1.15);
+}
+function zoomLine() {
+  const ys = st.fns.map(k => FN[k].f(st.x0)).filter(Number.isFinite);
+  const lo = Math.min(...ys), hi = Math.max(...ys), dy = Math.max((hi - lo) * 0.8, 1e-4);
+  const e = 1e-6, k = Math.max(...st.fns.map(f => Math.abs((FN[f].f(st.x0 + e) - FN[f].f(st.x0 - e)) / (2 * e))).filter(Number.isFinite), 1e-3);
+  const dx = Math.min(Math.max(Math.abs(st.x0), 0.05), 1.2 * (hi - lo + 2 * dy) / k);
+  P.setWindow(st.x0 - dx, st.x0 + dx, lo - dy, hi + dy);
+}
+
+function update() { P.redraw(); P2.redraw(); panel(); }
+
+function panel() {
+  let h = '';
+  if (st.mode === 'line') {
+    const vals = st.fns.map((k, i) => ({ i, k, v: FN[k].f(st.x0) }));
+    h += `<div class="node"><span class="f">① 写成同一个 x 处的函数值（x₀ = ${num(st.x0, 4)}）</span><br>${vals.map(({ i, k, v }) => `<span class="v" style="color:${COL[i]}">${'abc'[i]} = ${FN[k].e(st.x0)} = ${Number.isFinite(v) ? num(v, 7) : '无意义'}</span>`).join('<br>')}</div>`;
+    const ok = vals.filter(o => Number.isFinite(o.v)).sort((p, q) => p.v - q.v);
+    const mid = [0, 1].filter(m => ok.length && ok[0].v < m && ok[ok.length - 1].v > m);
+    h += `<div class="link">↓</div><div class="node ok"><span class="f">② 结论</span><br><span class="v">${ok.map(o => 'abc'[o.i]).join(' < ')}</span>${mid.length ? `<br><span class="n">中间量：${mid.map(m => `${ok.filter(o => o.v < m).map(o => 'abc'[o.i]).join('、')} < ${m} < ${ok.filter(o => o.v > m).map(o => 'abc'[o.i]).join('、')}`).join('；')}</span>` : ''}</div>`;
+    const gaps = ok.slice(1).map((o, j) => o.v - ok[j].v), tiny = Math.min(...gaps);
+    if (gaps.length && tiny < 0.01) h += `<div class="node warn"><span class="f">差距很小：${Lab.sci(tiny, 2)}</span><br><span class="n">看图分辨不出时，构造差函数（如 h(x) = ${FN[ok[1].k].n} − (${FN[ok[0].k].n})），由 h(0) = 0 和 h′(x) 的符号判断。点"放大到 x₀ 附近"可以看清曲线的上下关系。</span></div>`;
+  } else if (st.mode === 'lnx') {
+    const f = x => Math.log(x) / x, [x1, x2] = st.u, f1 = f(x1), f2 = f(x2), eq = Math.abs(f1 - f2) < 1e-9;
+    h += `<div class="node"><span class="f">① 取对数</span><br><span class="v">x₁<sup>x₂</sup> 与 x₂<sup>x₁</sup> 比较 ⇔ x₂ln x₁ 与 x₁ln x₂ 比较 ⇔ ln x₁/x₁ 与 ln x₂/x₂ 比较</span></div>`;
+    h += `<div class="link">↓</div><div class="node"><span class="f">② 构造 f(x) = ln x / x</span><br><span class="v">f′(x) = (1 − ln x)/x²：(0, e) 上增，(e, +∞) 上减</span><br><span class="v">f(${nm(x1)}) = ${num(f1, 5)}，f(${nm(x2)}) = ${num(f2, 5)}</span></div>`;
+    h += `<div class="link">↓</div><div class="node ok"><span class="f">③ 结论</span><br><span class="v">${nm(x1)}<sup>${nm(x2)}</sup> ${eq ? '=' : f1 > f2 ? '>' : '<'} ${nm(x2)}<sup>${nm(x1)}</sup></span><br><span class="n">数值：${Lab.sci(x1 ** x2, 4)} 与 ${Lab.sci(x2 ** x1, 4)}</span></div>`;
+    if (st.use3) {
+      const ord = st.u.map((u, i) => ({ i, v: f(u) })).sort((p, q) => p.v - q.v);
+      h += `<div class="node"><span class="f">三个数排序</span><br><span class="v">${ord.map(o => `ln ${num(st.u[o.i], 3)}/${num(st.u[o.i], 3)}`).join(' < ')}</span></div>`;
+    }
+    h += `<div class="node"><span class="n">两点函数值相等（如 2 和 4）时 x₁<sup>x₂</sup> = x₂<sup>x₁</sup>；同在 e 的右侧时，越大的数 f 越小。</span></div>`;
+  } else {
+    const B = BOUNDS[st.b], hx = B.big(st.bx) - B.small(st.bx);
+    h += `<div class="node"><span class="f">① 当前 x = ${num(st.bx, 3)}</span><br><span class="v">${B.bn} = ${num(B.big(st.bx), 5)}，${B.sn} = ${num(B.small(st.bx), 5)}</span><br><span class="v">差 h(x) = ${num(hx, 5)} ≥ 0</span></div>`;
+    h += `<div class="link">↓ 证明</div><div class="node"><span class="f">② 构造 h(x) = ${B.bn} − (${B.sn})</span><br><span class="n">求 h′(x)，在切点 x = ${nm(B.t)} 左右变号（或单调），所以 h(x) ≥ h(${nm(B.t)}) = 0，等号当且仅当 x = ${nm(B.t)}。</span></div>`;
+    h += `<div class="node ok"><span class="f">③ 应用</span><br><span class="n">${B.use}</span></div>`;
+  }
+  $('chain').innerHTML = h;
+}
+
+const show = (id, on) => { $(id).style.display = on ? '' : 'none'; };
+const setMode = Lab.seg('mode', v => switchMode(v));
+function switchMode(v, keepView) {
+  st.mode = v; setMode(v);
+  show('ctlLine', v === 'line'); show('ctlLnx', v === 'lnx'); show('ctlBound', v === 'bound'); show('wrap2', v === 'bound');
+  $('tip').innerHTML = {
+    line: '把要比较的几个数看成<b>同一个 x₀ 处的几个函数值</b>：竖线和曲线的交点谁高谁大。先找中间量 0、1，差距很小就构造差函数。',
+    lnx: '形如 a<sup>b</sup> 与 b<sup>a</sup>、ln a / a 的比较：取对数后都是 <b>f(x) = ln x / x</b> 的函数值，看它们在峰值 x = e 两侧的位置。',
+    bound: '<b>切线放缩</b>：曲线在切线的一侧，两条线只在切点相碰。下方的图是两者之差 h(x)，最小值 0 在切点处取到。',
+  }[v];
+  $('hint').textContent = { line: '拖动紫色竖线改变 x₀', lnx: '沿曲线拖动彩色点', bound: '拖动橙色线段改变 x' }[v];
+  if (!keepView) { if (v === 'line') P.setWindow(-1, 4, -2, 4); else if (v === 'lnx') P.setWindow(0, 12.5, -0.3, 0.5); else fitBound(); }
+  update();
+}
+
+const sel = (el, list) => { el.innerHTML = list; };
+const opts = Object.entries(FN).map(([k, f]) => `<option value="${k}">${f.n}</option>`).join('');
+[0, 1, 2].forEach(i => { sel($('f' + i), opts); $('f' + i).addEventListener('change', e => { st.fns[i] = e.target.value; update(); }); });
+$('ineq').innerHTML = BOUNDS.map((b, i) => `<option value="${i}">${b.n}</option>`).join('');
+$('ineq').addEventListener('change', e => { st.b = +e.target.value; setBound(); update(); });
+function setBound() { const B = BOUNDS[st.b]; Object.assign($('bx'), { min: B.lo, max: B.hi }); st.bx = Math.min(B.hi, Math.max(B.lo, st.bx)); Lab.setRange('bx', st.bx); $('ineq').value = st.b; fitBound(); }
+Lab.range('x0', v => num(v), v => { st.x0 = v; update(); });
+Lab.range('bx', v => num(v), v => { st.bx = v; update(); });
+[1, 2, 3].forEach(i => Lab.range('u' + i, v => num(v, 3), v => { st.u[i - 1] = v; update(); }));
+$('use3').addEventListener('change', e => { st.use3 = e.target.checked; update(); });
+$('zoom').addEventListener('click', zoomLine);
+$('home').addEventListener('click', () => P.setWindow(-1, 4, -2, 4));
+
+function applyLine(fns, x0, zoom) {
+  st.fns = fns; st.x0 = x0;
+  fns.forEach((k, i) => { $('f' + i).value = k; });
+  Lab.setRange('x0', x0); switchMode('line');
+  if (zoom) zoomLine();
+}
+function applyLnx(u, use3) {
+  st.u = u.concat([5]).slice(0, 3); st.use3 = !!use3; $('use3').checked = st.use3;
+  [1, 2, 3].forEach(i => Lab.setRange('u' + i, st.u[i - 1])); switchMode('lnx');
+}
+function applyBound(b, x) { st.b = b; st.bx = x; switchMode('bound', true); setBound(); update(); }
+Lab.presets('presets', [
+  ['2⁰·³、0.3²、log₂0.3', () => applyLine(['pow2', 'sq', 'log2'], 0.3)],
+  ['2022 新高考Ⅰ：0.1e⁰·¹、1/9、−ln0.9', () => applyLine(['xex', 'x1x', 'nl1x'], 0.1, true)],
+  ['2021 乙卷：2ln1.01、ln1.02、√1.04 − 1', () => applyLine(['ln2a', 'ln12', 'sq14'], 0.01, true)],
+  ['sin x < x < tan x', () => applyLine(['sin', 'x', 'tan'], 0.6)],
+  ['e^π 与 π^e', () => applyLnx([Math.E, Math.PI])],
+  ['2⁴ = 4²', () => applyLnx([2, 4])],
+  ['ln2/2、ln3/3、ln5/5', () => applyLnx([2, 3, 5], true)],
+  ['eˣ ≥ x + 1', () => applyBound(0, 0.8)],
+  ['ln x ≤ x − 1', () => applyBound(1, 2)],
+  ['ln x ≤ x/e（过原点的切线）', () => applyBound(3, 5)],
+]);
+applyLine(['pow2', 'sq', 'log2'], 0.3);
+</script>
+</body>
+</html>

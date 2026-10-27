@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>数列：通项、求和与递推 · 交互实验</title>
+<link rel="stylesheet" href="../assets/lab.css">
+</head>
+<body>
+<div id="top"><a href="../index.html">← 知识地图</a><b>数列：通项、求和与递推</b><span class="crumb">选择性必修第二册 · 第四章 数列</span></div>
+<div id="app">
+  <div id="left">
+    <div class="stage"><canvas id="cv"></canvas><div class="hint" id="hint"></div></div>
+    <div class="chartWrap"><canvas id="chart"></canvas></div>
+  </div>
+  <aside id="panel">
+    <div class="tip" id="tip"></div>
+
+    <h2>数列类型</h2>
+    <div class="seg" id="mode"><button data-v="arith" class="on">等差</button><button data-v="geo">等比</button><button data-v="rec">aₙ₊₁ = paₙ + q</button></div>
+
+    <h2>参数</h2>
+    <div class="row">首项 a₁ <input type="range" id="a1" min="-10" max="10" step="0.5" value="10"><span class="val" id="a1v"></span></div>
+    <div class="row" id="rowD">公差 d <input type="range" id="d" min="-4" max="4" step="0.5" value="-3"><span class="val" id="dv"></span></div>
+    <div class="row" id="rowQ">公比 q <input type="range" id="q" min="-2" max="2" step="0.1" value="0.5"><span class="val" id="qv"></span></div>
+    <div class="row" id="rowP">p <input type="range" id="p" min="-1.5" max="2.5" step="0.1" value="2"><span class="val" id="pv"></span></div>
+    <div class="row" id="rowC">q <input type="range" id="cc" min="-6" max="6" step="0.5" value="1"><span class="val" id="ccv"></span></div>
+    <div class="row">项数 n <input type="range" id="N" min="4" max="30" step="1" value="10"><span class="val" id="Nv"></span></div>
+
+    <h2>高考题型</h2>
+    <div class="grid" id="presets"></div>
+
+    <h2>分析</h2>
+    <div class="chain" id="chain"></div>
+
+    <h2>常用结论</h2>
+    <details open>
+      <summary>拖一拖，验证这些结论</summary>
+      <ul>
+        <li>等差数列 Sₙ = (d/2)n² + (a₁ − d/2)n，是过原点的"二次函数取整数点"；d < 0 时开口向下，有最大值。</li>
+        <li>等差 Sₙ 最大的 n：找最后一个非负项（aₙ ≥ 0 且 aₙ₊₁ ≤ 0）。若某项恰为 0，相邻两个 n 的 Sₙ 相等，都是最大值。</li>
+        <li>等比数列求和必须先看 q 是否等于 1；|q| < 1 时 Sₙ → a₁/(1 − q)。</li>
+        <li>aₙ₊₁ = paₙ + q（p ≠ 1）：设不动点 x = q/(1 − p)，则 {aₙ − x} 是公比为 p 的等比数列。</li>
+        <li>蛛网图：从 aₙ 竖直走到直线 y = px + q 得 aₙ₊₁，再水平走到 y = x 回到横轴位置。|p| < 1 时收敛到不动点。</li>
+      </ul>
+    </details>
+  </aside>
+</div>
+
+<script src="../assets/lab.js"></script>
+<script src="../assets/plane.js"></script>
+<script>
+const { $, fmt, num } = Lab;
+const st = { mode: 'arith', a1: 10, d: -3, q: 0.5, p: 2, c: 1, N: 10 };
+
+function terms(N = st.N) {
+  const a = [];
+  for (let n = 1; n <= N; n++) {
+    if (st.mode === 'arith') a.push(st.a1 + (n - 1) * st.d);
+    else if (st.mode === 'geo') a.push(st.a1 * Math.pow(st.q, n - 1));
+    else a.push(n === 1 ? st.a1 : st.p * a[n - 2] + st.c);
+  }
+  return a;
+}
+const sums = a => a.reduce((s, v, i) => (s.push((s[i - 1] || 0) + v), s), []);
+
+function fit(Pl, vals, x0, x1) {
+  const fin = vals.filter(Number.isFinite);
+  let lo = Math.min(0, ...fin), hi = Math.max(0, ...fin);
+  lo = Math.max(lo, -1e6); hi = Math.min(hi, 1e6);
+  const pad = Math.max(1, hi - lo) * 0.15;
+  Pl.setWindow(x0, x1, lo - pad, hi + pad);
+}
+
+const P = Plane.plane($('cv'), { xmin: 0, xmax: 11, ymin: -10, ymax: 12, equal: false, draw });
+const P2 = Plane.plane($('chart'), { xmin: 0, xmax: 11, ymin: -10, ymax: 30, equal: false, draw: drawSum });
+
+function draw(P) {
+  if (st.mode === 'rec') return drawCobweb(P);
+  const a = terms();
+  P.grid({ xl: 'n', yl: 'aₙ' });
+  if (st.mode === 'arith') P.fn(x => st.a1 + (x - 1) * st.d, 'rgba(124,58,237,.35)', 1.4, [5, 4], 0.5, st.N + 0.5);
+  else if (st.q > 0) P.fn(x => st.a1 * Math.pow(st.q, x - 1), 'rgba(124,58,237,.35)', 1.4, [5, 4], 0.5, st.N + 0.5);
+  a.forEach((v, i) => {
+    const n = i + 1;
+    P.poly([[n - 0.3, 0], [n + 0.3, 0], [n + 0.3, v], [n - 0.3, v]], v >= 0 ? 'rgba(124,58,237,.35)' : 'rgba(220,38,38,.3)', v >= 0 ? '#7c3aed' : '#dc2626', 1.2);
+    if (st.N <= 16) P.label(num(v, 2), n, v, v >= 0 ? '#5b21b6' : '#b91c1c', { dy: v >= 0 ? -10 : 12, size: 11, bold: true });
+  });
+  P.corner(st.mode === 'arith' ? `aₙ = ${num(st.a1)}${Plane.signed(st.d)}(n − 1)` : `aₙ = ${num(st.a1)}·(${num(st.q)})ⁿ⁻¹`, '#7c3aed');
+}
+
+function drawSum(Q) {
+  if (st.mode === 'rec') return drawRecTerms(Q);
+  const S = sums(terms());
+  Q.grid({ xl: 'n', yl: 'Sₙ' });
+  if (st.mode === 'arith' && st.d !== 0) {
+    Q.fn(x => st.d / 2 * x * x + (st.a1 - st.d / 2) * x, 'rgba(37,99,235,.35)', 1.4, [5, 4], 0, st.N + 0.5);
+    const ax = 0.5 - st.a1 / st.d;
+    if (ax > 0 && ax < st.N + 1) { Q.line(ax, 0, 0, 1, 'rgba(220,38,38,.5)', 1.2, [4, 4]); Q.label(`对称轴 n = ${num(ax, 2)}`, ax, Q.vis().y1, '#dc2626', { dy: 12, dx: 6, align: 'left', size: 11 }); }
+  }
+  if (st.mode === 'geo' && Math.abs(st.q) < 1 && st.q !== 0) {
+    const lim = st.a1 / (1 - st.q);
+    Q.line(0, lim, 1, 0, 'rgba(22,163,74,.6)', 1.2, [5, 4]);
+    Q.label(`极限 a₁/(1 − q) = ${num(lim, 3)}`, Q.vis().x1, lim, '#16a34a', { dx: -8, dy: -10, align: 'right', size: 11, bold: true });
+  }
+  const best = extreme(S);
+  S.forEach((s, i) => Q.pt(i + 1, s, best.includes(i + 1) ? '#dc2626' : '#2563eb', null, { r: best.includes(i + 1) ? 6 : 4 }));
+  Q.corner(`前 n 项和 Sₙ${best.length ? `（红点：${st.d < 0 ? '最大' : '最小'}）` : ''}`, '#2563eb');
+}
+
+// 等差数列 Sₙ 的最值位置（d ≠ 0 且 a₁、d 异号时）
+function extreme(S) {
+  if (st.mode !== 'arith' || st.d === 0 || st.a1 * st.d >= 0) return [];
+  const v = st.d < 0 ? Math.max(...S) : Math.min(...S);
+  return S.map((s, i) => (Math.abs(s - v) < 1e-9 ? i + 1 : 0)).filter(Boolean);
+}
+
+function drawCobweb(P) {
+  const { p, c } = st, a = terms(), fix = p !== 1 ? c / (1 - p) : null;
+  P.grid({ xl: 'aₙ', yl: 'aₙ₊₁' });
+  P.line(0, 0, 1, 1, '#9ca3af', 1.4, [6, 4]);
+  P.line(0, c, 1, p, '#2563eb', 2.4);
+  P.label(`y = ${num(p)}x${Plane.signed(c)}`, P.vis().x1, p * P.vis().x1 + c, '#2563eb', { dx: -10, dy: 14, align: 'right', bold: true });
+  P.label('y = x', P.vis().x1, P.vis().x1, '#6b7280', { dx: -10, dy: -10, align: 'right' });
+  const c2 = P.ctx;
+  c2.save(); c2.strokeStyle = '#ea580c'; c2.lineWidth = 1.8; c2.beginPath();
+  c2.moveTo(P.X(a[0]), P.Y(0));
+  for (let i = 0; i < a.length - 1; i++) {
+    if (!Number.isFinite(a[i + 1]) || Math.abs(a[i + 1]) > 1e5) break;
+    c2.lineTo(P.X(a[i]), P.Y(a[i + 1]));
+    c2.lineTo(P.X(a[i + 1]), P.Y(a[i + 1]));
+  }
+  c2.stroke(); c2.restore();
+  a.slice(0, 6).forEach((v, i) => P.pt(v, 0, '#ea580c', `a${'₁₂₃₄₅₆'[i]}`, { r: 4, size: 11, dy: 14, dx: -6 }));
+  if (fix !== null) P.pt(fix, fix, '#16a34a', `不动点 (${num(fix, 3)}, ${num(fix, 3)})`, { r: 6, size: 12 });
+  P.corner('蛛网图：竖直走到蓝线得下一项，水平走到 y = x 再继续', '#ea580c');
+}
+
+function drawRecTerms(Q) {
+  const a = terms(), fix = st.p !== 1 ? st.c / (1 - st.p) : null;
+  Q.grid({ xl: 'n', yl: 'aₙ' });
+  if (fix !== null) { Q.line(0, fix, 1, 0, 'rgba(22,163,74,.6)', 1.2, [5, 4]); Q.label(`不动点 ${num(fix, 3)}`, Q.vis().x1, fix, '#16a34a', { dx: -8, dy: -10, align: 'right', size: 11, bold: true }); }
+  Q.fn(x => (fix !== null ? fix + (st.a1 - fix) * Math.pow(st.p, x - 1) : st.a1 + (x - 1) * st.c), 'rgba(234,88,12,.3)', 1.2, [4, 4], 1, st.N);
+  a.forEach((v, i) => Q.pt(i + 1, v, '#ea580c', null, { r: 4 }));
+  Q.corner('aₙ 随 n 的变化', '#ea580c');
+}
+
+function updatePanel() {
+  const a = terms(), S = sums(a), N = st.N;
+  let h = '';
+  if (st.mode === 'arith') {
+    const { a1, d } = st;
+    h += `<div class="node"><span class="f">通项</span> aₙ = a₁ + (n − 1)d = <span class="v">${num(d)}n${Plane.signed(a1 - d)}</span><br><span class="n">aₙ 是 n 的一次函数，斜率就是公差 d</span></div>`;
+    h += `<div class="link">↓</div><div class="node"><span class="f">前 n 项和</span> Sₙ = n(a₁ + aₙ)/2 = <span class="v">${num(d / 2)}n²${Plane.signed(a1 - d / 2)}n</span><br><span class="n">S${Lab.sub(N)} = ${num(S[N - 1], 3)}</span></div>`;
+    const best = extreme(S);
+    if (best.length) {
+      const k = best[best.length - 1];
+      h += `<div class="link">↓ a₁ 与 d 异号：Sₙ 有${d < 0 ? '最大' : '最小'}值</div><div class="node ok"><span class="f">找最后一个${d < 0 ? '非负' : '非正'}项</span><br><span class="v">a${Lab.sub(k)} = ${num(a1 + (k - 1) * d, 3)}，a${Lab.sub(k + 1)} = ${num(a1 + k * d, 3)}</span><br><span class="v">n = ${best.join(' 或 ')} 时 Sₙ ${d < 0 ? '最大' : '最小'} = ${num(S[best[0] - 1], 3)}</span>${best.length > 1 ? '<br><span class="n">有一项恰好为 0，所以两个 n 的和相等。</span>' : ''}<br><span class="n">也可看二次函数：对称轴 n = 1/2 − a₁/d = ${num(0.5 - a1 / d, 3)}，取离它最近的正整数。</span></div>`;
+    } else h += `<div class="node"><span class="n">${d === 0 ? '常数列' : a1 * d > 0 || a1 === 0 ? `a₁ 与 d 同号（或 a₁ = 0）：Sₙ 单调${d > 0 ? '递增，有最小值 S₁' : '递减，有最大值 S₁'}` : ''}</span></div>`;
+  } else if (st.mode === 'geo') {
+    const { a1, q } = st;
+    if (q === 0 || a1 === 0) h += `<div class="node warn"><span class="f">等比数列要求 a₁ ≠ 0 且 q ≠ 0</span></div>`;
+    else {
+      h += `<div class="node"><span class="f">通项</span> aₙ = a₁qⁿ⁻¹ = <span class="v">${num(a1)}·(${num(q)})ⁿ⁻¹</span><br><span class="n">${q < 0 ? 'q < 0：各项正负交替' : q > 1 ? (a1 > 0 ? '递增' : '递减') : q === 1 ? '常数列' : a1 > 0 ? '递减，趋近于 0' : '递增，趋近于 0'}</span></div>`;
+      if (q === 1) h += `<div class="link">↓</div><div class="node warn"><span class="f">q = 1：Sₙ = na₁ = ${num(a1)}n</span><br><span class="n">不能用公式 a₁(1 − qⁿ)/(1 − q)，分母为 0。题目中 q 含参数时必须单独讨论 q = 1。</span></div>`;
+      else h += `<div class="link">↓</div><div class="node"><span class="f">前 n 项和</span> Sₙ = a₁(1 − qⁿ)/(1 − q)<br><span class="v">= ${num(a1 / (1 - q), 3)}·[1 − (${num(q)})ⁿ]</span><br><span class="n">S${Lab.sub(N)} = ${num(S[N - 1], 4)}</span></div>`;
+      if (Math.abs(q) < 1) h += `<div class="link">↓ |q| < 1，qⁿ → 0</div><div class="node ok"><span class="f">Sₙ → a₁/(1 − q) = ${num(a1 / (1 - q), 4)}</span><br><span class="n">${q < 0 ? 'q < 0 时 Sₙ 在极限两侧来回摆动' : 'q > 0 时 Sₙ 单调趋近极限'}</span></div>`;
+    }
+  } else {
+    const { a1, p, c } = st;
+    if (p === 1) h += `<div class="node"><span class="f">p = 1：aₙ₊₁ − aₙ = ${num(c)}</span><br><span class="n">就是公差为 ${num(c)} 的等差数列，aₙ = ${num(a1)}${Plane.signed(c)}(n − 1)。</span></div>`;
+    else {
+      const x = c / (1 - p);
+      h += `<div class="node"><span class="f">① 求不动点：令 x = px + q</span><br><span class="v">x = q/(1 − p) = ${num(c)}/(1 − ${num(p)}) = ${num(x, 4)}</span></div>`;
+      h += `<div class="link">↓ 两式相减</div><div class="node"><span class="f">② aₙ₊₁ − ${num(x, 3)} = ${num(p)}(aₙ − ${num(x, 3)})</span><br><span class="n">${Math.abs(a1 - x) < 1e-12 ? 'a₁ 恰为不动点：常数列' : `{aₙ − ${num(x, 3)}} 是首项 ${num(a1 - x, 3)}、公比 ${num(p)} 的等比数列`}</span></div>`;
+      h += `<div class="link">↓</div><div class="node ok"><span class="f">③ aₙ = ${num(x, 3)}${Plane.signed(a1 - x, 3)}·(${num(p)})ⁿ⁻¹</span><br><span class="n">${p === 0 ? '' : Math.abs(p) < 1 ? `|p| < 1：aₙ → ${num(x, 3)}（蛛网向不动点收拢）` : `|p| ≥ 1：远离不动点${p < 0 ? '并来回摆动' : ''}`}</span></div>`;
+    }
+  }
+  h += `<div class="node"><span class="n">前几项：${a.slice(0, 8).map((v, i) => `a${Lab.sub(i + 1)} = ${num(v, 3)}`).join('，')}${a.length > 8 ? ' …' : ''}</span></div>`;
+  $('chain').innerHTML = h;
+  const tips = {
+    arith: '<b>等差数列</b>：每一项比前一项多 d。上图是 aₙ（柱子），下图是前 n 项和 Sₙ（点），它们落在一条过原点的抛物线上。',
+    geo: '<b>等比数列</b>：每一项是前一项的 q 倍。|q| > 1 时增长很快，|q| < 1 时趋近 0，Sₙ 有极限。',
+    rec: '<b>一阶线性递推</b> aₙ₊₁ = paₙ + q：上图是蛛网图，下图是 aₙ 随 n 的变化。高考常用"构造等比数列"求通项。',
+  };
+  $('tip').innerHTML = tips[st.mode];
+  $('hint').textContent = st.mode === 'rec' ? '橙色折线是蛛网图；滚轮缩放，空白处拖动移动视野' : '紫色柱子是各项的值，红色表示负项';
+}
+
+function render() {
+  const a = terms();
+  if (st.mode === 'rec') {
+    const fin = a.filter(v => Number.isFinite(v) && Math.abs(v) < 1e5), fix = st.p !== 1 ? st.c / (1 - st.p) : 0;
+    const lo = Math.min(0, fix, ...fin), hi = Math.max(1, fix, ...fin), pad = (hi - lo) * 0.2 + 1;
+    P.o.equal = true;
+    P.setWindow(lo - pad, hi + pad, lo - pad, hi + pad);
+    fit(P2, fin, 0, st.N + 1);
+  } else {
+    P.o.equal = false;
+    fit(P, a, 0, st.N + 1);
+    fit(P2, sums(a), 0, st.N + 1);
+  }
+  updatePanel();
+}
+
+const show = (id, on) => { $(id).style.display = on ? '' : 'none'; };
+const setMode = Lab.seg('mode', v => switchMode(v));
+function switchMode(v) {
+  st.mode = v; setMode(v);
+  show('rowD', v === 'arith'); show('rowQ', v === 'geo'); show('rowP', v === 'rec'); show('rowC', v === 'rec');
+  render();
+}
+[['a1', 'a1'], ['d', 'd'], ['q', 'q'], ['p', 'p'], ['N', 'N']].forEach(([id, k]) => Lab.range(id, v => num(v), v => { st[k] = v; render(); }));
+Lab.range('cc', v => num(v), v => { st.c = v; render(); });
+function apply(mode, o) {
+  Object.assign(st, o);
+  ['a1', 'd', 'q', 'p', 'N'].forEach(k => Lab.setRange(k, st[k]));
+  Lab.setRange('cc', st.c);
+  switchMode(mode);
+}
+Lab.presets('presets', [
+  ['等差：Sₙ 何时最大', () => apply('arith', { a1: 10, d: -3, N: 10 })],
+  ['a₅ = 0：S₄ = S₅ 都最大', () => apply('arith', { a1: 8, d: -2, N: 10 })],
+  ['a₁ < 0，d > 0：Sₙ 最小', () => apply('arith', { a1: -9, d: 2, N: 12 })],
+  ['等比：q = 1 的陷阱', () => apply('geo', { a1: 2, q: 1, N: 8 })],
+  ['|q| < 1：Sₙ 的极限', () => apply('geo', { a1: 4, q: 0.5, N: 12 })],
+  ['q < 0：正负交替', () => apply('geo', { a1: 4, q: -0.7, N: 14 })],
+  ['aₙ₊₁ = 2aₙ + 1 构造等比', () => apply('rec', { a1: 1, p: 2, c: 1, N: 6 })],
+  ['aₙ₊₁ = ½aₙ + 3 收敛', () => apply('rec', { a1: 0, p: 0.5, c: 3, N: 10 })],
+]);
+switchMode('arith');
+</script>
+</body>
+</html>
